@@ -6,6 +6,7 @@ import ProjectListing from "@/components/project-listing";
 import ResearcherCard from "@/components/researcher-card";
 import MessageWidget from "@/components/message-widget";
 import { ProjectRecommendations } from "@/components/recommendations";
+import CreateProjectModal from "@/components/create-project-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState("");
+  const [showCreateProject, setShowCreateProject] = useState(false);
 
   // Fetch user's projects
   const { data: userProjects = [] } = useQuery<Project[]>({
@@ -166,7 +168,11 @@ export default function Dashboard() {
                 <TabsContent value="projects" className="p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">My Research Projects</h2>
-                    <Button className="bg-primary text-white hover:bg-blue-700" data-testid="button-new-project">
+                    <Button 
+                      className="bg-primary text-white hover:bg-blue-700" 
+                      onClick={() => setShowCreateProject(true)}
+                      data-testid="button-new-project"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       New Project
                     </Button>
@@ -184,7 +190,11 @@ export default function Dashboard() {
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
                         <p className="text-gray-600 mb-4">Start your first research project</p>
-                        <Button className="bg-primary text-white hover:bg-blue-700" data-testid="button-create-first-project">
+                        <Button 
+                          className="bg-primary text-white hover:bg-blue-700" 
+                          onClick={() => setShowCreateProject(true)}
+                          data-testid="button-create-first-project"
+                        >
                           Create Project
                         </Button>
                       </div>
@@ -353,6 +363,12 @@ export default function Dashboard() {
       </div>
 
       <MessageWidget />
+      
+      {/* Create Project Modal */}
+      <CreateProjectModal 
+        isOpen={showCreateProject} 
+        onClose={() => setShowCreateProject(false)} 
+      />
     </div>
   );
 }

@@ -1,0 +1,193 @@
+awesome—here’s a tight set of copy-paste “Replit prompts” you can feed to Ghostwriter/AI on Replit to scaffold your ResearchCollab site from your deck. Each prompt is self-contained and tells the agent exactly what to build next (frontend → backend → real-time → AI helper → admin). I’ve aligned features with your slides: onboarding/verification (ORCID/Scholar), project posting, AI search/matching, chat, tasks, funding, reviews, notifications, and admin.  ￼
+
+⸻
+
+0) Project bootstrap (monorepo)
+
+Prompt:
+Create a JavaScript monorepo with:
+	•	apps/web (Next.js 14 App Router, TypeScript, Tailwind, shadcn/ui, next-auth, Prisma)
+	•	apps/api (Node + Fastify + Prisma + Zod, JWT auth)
+	•	packages/ui (shared UI components)
+	•	packages/tsconfig, packages/eslint-config
+Include pnpm workspaces, Prettier, ESLint. Add .env.example for NEXTAUTH_SECRET, DATABASE_URL, ORCID_CLIENT_ID/SECRET, GOOGLE_SCHOLAR_SCRAPER_KEY (placeholder), STRIPE_KEY, SENDGRID_KEY. Set up Prisma with PostgreSQL and one migration.
+
+⸻
+
+1) Data model (Prisma)
+
+Prompt:
+Define Prisma models for:
+	•	User (name, email, role: [“researcher”,“owner”,“admin”], orcidId, scholarUrl, verifiedAt, bio, skills:string[], publications:string[], rating:number)
+	•	Project (ownerId, title, description, requiredSkills:string[], timeline, compensation, attachments[], status)
+	•	Application (projectId, userId, coverLetter, proposalUrl, score:number, status)
+	•	Message (channelId, senderId, content, attachments[])
+	•	Channel (projectId, isGroup:boolean)
+	•	Task (projectId, assigneeId, title, status, dueAt, order)
+	•	Review (reviewerId, revieweeId, projectId, rating, text)
+	•	Notification (userId, type, payload jsonb, readAt)
+	•	Grant (title, region, deadline, amount, url, tags:string[])
+Add indices and relations; run migration.
+
+⸻
+
+2) Auth + ORCID/Scholar verification
+
+Prompt:
+In apps/web, set up NextAuth with Email + ORCID OAuth. After ORCID login, show a Verify Profile wizard: name, affiliation, expertise, publications (paste URLs). Persist to User. Add verifiedAt only after admin approval. Provide inputs for Google Scholar URL. Build an /admin/review page listing unverified users with Approve/Reject actions that set verifiedAt and role.
+
+⸻
+
+3) Landing + onboarding pages
+
+Prompt:
+Build these Next.js routes and pages:
+	•	/ marketing page (hero: “Connecting Verified Researchers Worldwide”, CTA “Register & Verify”)
+	•	/register → /verify flow (ORCID connect, profile form)
+	•	/dashboard with tabs: Projects, Messages, Tasks, Grants, Notifications
+Use shadcn/ui (Card, Tabs, Badge) and Tailwind for a clean, professional look.
+
+⸻
+
+4) Project posting & management
+
+Prompt:
+Create /projects/new and /projects/[id]:
+	•	New: form with title, description (rich text), required skills (multi-select), timeline, compensation, attachments (upload to /api/upload).
+	•	Detail: show description, required skills, timeline, compensation, attachments, and “Apply” button for non-owners. Owners see “Edit/Close/Archive.”
+Generate CRUD API routes in apps/api with Fastify + Prisma for Projects and Applications.
+
+⸻
+
+5) Search + AI matching
+
+Prompt:
+Implement /search with filters (field, skill, location, language). Add a server action that:
+	1.	Embeds Project.requiredSkills + description and User.skills + publications (use OpenAI embeddings placeholder function).
+	2.	Computes cosine similarity and returns top candidates, exposing score on each Application row.
+Add a slider to adjust weights for expertise vs. publications vs. ratings. Display a ranked list like your “Candidate—Match—Expertise” table.
+
+⸻
+
+6) Applications & selection
+
+Prompt:
+On /projects/[id], add an “Applicants” tab (owner-only) with table: Applicant | Score | Rating | Action [Accept | Decline | Shortlist].
+On “Apply”, show form: cover letter (markdown), proposal URL, attach CV. Persist to Application.
+Emit notifications to applicants on status change.
+
+⸻
+
+7) Messaging (real-time) + channels
+
+Prompt:
+Add a simple socket server in apps/api using Socket.IO. In apps/web, create a /messages/[channelId] page. For each project, auto-create a group Channel with members = owner + accepted collaborators. Implement real-time send/receive, attachments upload, and typing indicator. Store thread in Message.
+
+⸻
+
+8) Tasks: Kanban + Gantt
+
+Prompt:
+Build /projects/[id]/tasks with:
+	•	Kanban (To Do / In Progress / Done) using drag-and-drop (dnd-kit)
+	•	Gantt view (one bar per task across dates)
+CRUD endpoints for Task. Add quick filters: assignee, due this week, overdue. Progress bar shows % done.
+
+⸻
+
+9) Knowledge & AI assistant
+
+Prompt:
+Add /assistant pane inside each project:
+	•	Upload PDFs → store in S3-like bucket; create text chunks; run embeddings.
+	•	Chat UI: “Summarise this report” → call RAG pipeline (embed query, retrieve top chunks, synthesize).
+	•	Commands: “Highlight next milestone”, “Draft a 150-word abstract”.
+Stub out providers behind an interface to swap models later.
+
+⸻
+
+10) Funding & resources (Grants)
+
+Prompt:
+Create /grants index with cards: title, region, deadline, amount, link, tags. Filters for region, deadline window, amount range. Admin CSV upload supports bulk insert into Grant. Let users “link” a grant to a Project and show it on the Project sidebar.
+
+⸻
+
+11) Ratings & reviews
+
+Prompt:
+After a project is marked “Delivered”, prompt owner and collaborators to review each other: 1–5 rating + short text. Compute rolling User.rating average. Show badges for top collaborators on profile pages.
+
+⸻
+
+12) Notifications & calendar sync
+
+Prompt:
+Implement /notifications and a bell icon badge. Create server events for: match found, message, task due, application status, grant deadline. Add an iCal feed endpoint per user to subscribe in Google Calendar/Outlook. Add a weekly email digest (SendGrid).
+
+⸻
+
+13) Admin dashboard
+
+Prompt:
+Create /admin with:
+	•	Users (verify, roles), Projects (flags), Reports/Disputes, Metrics (MAU, projects created, match conversions).
+	•	Payments config (Stripe keys placeholder), Compliance (consent logs), Role permissions.
+Add charts using Recharts.
+
+⸻
+
+14) Security & compliance basics
+
+Prompt:
+Add middleware for role-based access control. Use HTTPS only, secure cookies, CSRF protection for non-API forms. Hash tokens. Add GDPR/CCPA stubs: data export/delete endpoints for a user and consent capture on first login.
+
+⸻
+
+15) Styling polish
+
+Prompt:
+Apply a modern academic aesthetic:
+	•	Tailwind + shadcn/ui, rounded-2xl cards, subtle shadows, neutral grays, ample whitespace
+	•	Inter or SF Pro fonts
+	•	Consistent spacing scale (8px grid)
+	•	Dark mode toggle
+
+⸻
+
+16) Seed data + demo script
+
+Prompt:
+Create a Prisma seed with: 1 admin, 4 verified researchers (with skills/publications), 2 project owners, 5 projects, 12 applications, 1 active project with messages, tasks, and a linked grant. Include a scripts/demo.ts to reset DB, seed, and print demo credentials.
+
+⸻
+
+17) Deploy on Replit
+
+Prompt:
+Add Replit Nix configuration to run pnpm workspaces:
+	•	web: pnpm --filter apps/web dev
+	•	api: pnpm --filter apps/api dev
+Set environment variables in Replit Secrets, and add Procfile or replit.nix services for both apps. Provide a readme with “How to run locally” and “How to deploy” steps.
+
+⸻
+
+18) Acceptance checklist (paste in PR description)
+
+Prompt:
+Add a docs/ACCEPTANCE.md listing:
+	•	Register/verify flow works; admin can approve users
+	•	Post/search/apply/accept flows complete
+	•	Matching returns ranked candidates; weight sliders change order
+	•	Chat is real-time; file upload works
+	•	Kanban/Gantt CRUD OK; progress bar correct
+	•	Assistant can RAG-summarize an uploaded PDF
+	•	Grants page filters; link grant to project
+	•	Reviews compute ratings; badges display
+	•	Notifications + weekly email digest OK
+	•	Admin dashboard: verify users, basic metrics
+	•	RBAC enforced; GDPR stubs live
+
+⸻
+
+If you want, I can generate starter code blocks for any one prompt (e.g., Prisma schema or the NextAuth+ORCID flow) so you can drop them into Replit and run immediately.

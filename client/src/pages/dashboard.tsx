@@ -231,12 +231,22 @@ export default function Dashboard() {
                     {user?.role === "professor" ? "Applications Received" : "My Applications"}
                   </h2>
                   
+                  {/* Debug info */}
+                  {console.log("Dashboard debug:", { 
+                    userRole: user?.role, 
+                    receivedApplications: receivedApplications, 
+                    sentApplications: sentApplications,
+                    applicationsArray: user?.role === "professor" ? receivedApplications : sentApplications
+                  })}
+                  
                   <div className="space-y-4">
                     {(user?.role === "professor" ? receivedApplications : sentApplications).map((application: any) => {
                       // Handle both direct application objects and nested structures
                       const actualApplication = application.applications || application;
                       const applicantInfo = application.user || application.applicant;
                       const projectInfo = application.project;
+                      
+                      console.log("Processing application:", { application, actualApplication, applicantInfo, projectInfo });
                       
                       return (
                         <Card key={actualApplication.id} className="hover:shadow-md transition-shadow">

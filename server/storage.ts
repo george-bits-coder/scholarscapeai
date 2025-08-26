@@ -262,13 +262,64 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApplicationsForProjectOwner(ownerId: string): Promise<(Application & { user: User; project: Project })[]> {
-    return await db
-      .select()
+    const result = await db
+      .select({
+        // Application fields
+        id: applications.id,
+        projectId: applications.projectId,
+        userId: applications.userId,
+        coverLetter: applications.coverLetter,
+        proposalUrl: applications.proposalUrl,
+        status: applications.status,
+        matchScore: applications.matchScore,
+        reviewedAt: applications.reviewedAt,
+        reviewNotes: applications.reviewNotes,
+        deadline: applications.deadline,
+        createdAt: applications.createdAt,
+        updatedAt: applications.updatedAt,
+        // User fields
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          name: users.name,
+          affiliation: users.affiliation,
+          bio: users.bio,
+          skills: users.skills,
+          publications: users.publications,
+          rating: users.rating,
+          profileImage: users.profileImage,
+          verified: users.verified,
+          role: users.role,
+          researchInterests: users.researchInterests,
+          academicLevel: users.academicLevel,
+          profileEmbedding: users.profileEmbedding,
+          createdAt: users.createdAt,
+        },
+        // Project fields
+        project: {
+          id: projects.id,
+          ownerId: projects.ownerId,
+          title: projects.title,
+          description: projects.description,
+          requiredSkills: projects.requiredSkills,
+          compensation: projects.compensation,
+          timeline: projects.timeline,
+          status: projects.status,
+          remote: projects.remote,
+          location: projects.location,
+          projectEmbedding: projects.projectEmbedding,
+          createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
+        },
+      })
       .from(applications)
       .leftJoin(users, eq(applications.userId, users.id))
       .leftJoin(projects, eq(applications.projectId, projects.id))
       .where(eq(projects.ownerId, ownerId))
-      .orderBy(desc(applications.createdAt)) as any;
+      .orderBy(desc(applications.createdAt));
+    
+    return result as any;
   }
 
   async updateApplicationStatus(applicationId: string, status: string, reviewNotes?: string): Promise<Application> {

@@ -233,9 +233,10 @@ export default function Dashboard() {
                   
                   <div className="space-y-4">
                     {(user?.role === "professor" ? receivedApplications : sentApplications).map((application: any) => {
+                      // Handle both direct application objects and nested structures
                       const actualApplication = application.applications || application;
-                      const applicantInfo = application.users || application.applicant || application.user;
-                      const projectInfo = application.projects || application.project;
+                      const applicantInfo = application.user || application.applicant;
+                      const projectInfo = application.project;
                       
                       return (
                         <Card key={actualApplication.id} className="hover:shadow-md transition-shadow">

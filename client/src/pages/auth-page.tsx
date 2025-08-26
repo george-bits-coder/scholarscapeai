@@ -77,8 +77,8 @@ export default function AuthPage() {
     // Convert research interests string to array
     const processedData = {
       ...userData,
-      researchInterests: typeof userData.researchInterests === 'string' && userData.researchInterests ? 
-        userData.researchInterests.split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
+      researchInterests: (userData.researchInterests as string) ? 
+        (userData.researchInterests as string).split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
         []
     };
     registerMutation.mutate(processedData, {

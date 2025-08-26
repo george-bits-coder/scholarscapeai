@@ -142,8 +142,9 @@ export default function Header() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem 
                   onClick={() => {
-                    // TODO: Navigate to profile page
-                    alert('Profile page coming soon!');
+                    if (user?.id) {
+                      setLocation(`/researchers/${user.id}`);
+                    }
                   }}
                   data-testid="menu-profile"
                 >

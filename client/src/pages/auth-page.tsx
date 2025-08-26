@@ -216,7 +216,8 @@ export default function AuthPage() {
                             <Input 
                               placeholder="Stanford University" 
                               data-testid="input-affiliation" 
-                              {...field} 
+                              {...field}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -233,7 +234,8 @@ export default function AuthPage() {
                             <Textarea 
                               placeholder="Brief description of your research interests..." 
                               data-testid="input-bio" 
-                              {...field} 
+                              {...field}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />

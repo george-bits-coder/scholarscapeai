@@ -20,7 +20,7 @@ export default function ResearcherCard({ researcher }: ResearcherCardProps) {
     <Card className="hover:shadow-md transition-shadow" data-testid="researcher-card">
       <CardContent className="p-6 text-center">
         <Avatar className="w-20 h-20 mx-auto mb-4">
-          <AvatarImage src={researcher.profileImage} />
+          <AvatarImage src={researcher.profileImage || undefined} />
           <AvatarFallback className="text-lg">
             {researcher.name?.split(" ").map(n => n[0]).join("")}
           </AvatarFallback>

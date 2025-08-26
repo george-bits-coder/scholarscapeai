@@ -1,9 +1,11 @@
 import { type User, type InsertUser, type Project, type InsertProject, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { users, projects, applications, messages, grants, notifications } from "@shared/schema";
+import { eq, and, desc, inArray, or } from "drizzle-orm";
+import { db } from "./database";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -33,339 +35,194 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private projects: Map<string, Project>;
-  private applications: Map<string, Application>;
-  private messages: Map<string, Message>;
-  private grants: Map<string, Grant>;
-  private notifications: Map<string, Notification>;
-  public sessionStore: session.SessionStore;
+export class DatabaseStorage implements IStorage {
+  public sessionStore: any;
 
   constructor() {
-    this.users = new Map();
-    this.projects = new Map();
-    this.applications = new Map();
-    this.messages = new Map();
-    this.grants = new Map();
-    this.notifications = new Map();
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      conString: process.env.DATABASE_URL!,
+      createTableIfMissing: true,
     });
-    
-    this.seedData();
-  }
-
-  private seedData() {
-    // Create some initial users
-    const users = [
-      {
-        id: "user1",
-        username: "sarah.chen",
-        password: "hashedpassword1",
-        email: "sarah.chen@stanford.edu",
-        name: "Dr. Sarah Chen",
-        affiliation: "Stanford University",
-        bio: "AI researcher specializing in machine learning and medical imaging",
-        skills: ["Machine Learning", "Medical Imaging", "Python", "TensorFlow"],
-        publications: ["AI in Cancer Detection", "Deep Learning for Medical Diagnosis"],
-        rating: "4.8",
-        profileImage: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop",
-        verified: true,
-        createdAt: new Date(),
-      },
-      {
-        id: "user2",
-        username: "michael.thompson",
-        password: "hashedpassword2",
-        email: "m.thompson@mit.edu",
-        name: "Dr. Michael Thompson",
-        affiliation: "MIT",
-        bio: "Blockchain researcher and distributed systems expert",
-        skills: ["Blockchain", "Smart Contracts", "Solidity", "Distributed Systems"],
-        publications: ["Blockchain in Supply Chain", "Smart Contract Security"],
-        rating: "4.9",
-        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-        verified: true,
-        createdAt: new Date(),
-      },
-      {
-        id: "user3",
-        username: "elena.rodriguez",
-        password: "hashedpassword3",
-        email: "e.rodriguez@jhu.edu",
-        name: "Dr. Elena Rodriguez",
-        affiliation: "Johns Hopkins",
-        bio: "Drug discovery researcher using AI and machine learning",
-        skills: ["Drug Discovery", "Neural Networks", "PyTorch", "Bioinformatics"],
-        publications: ["AI in Drug Discovery", "Neural Networks for Protein Folding"],
-        rating: "4.7",
-        profileImage: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop",
-        verified: true,
-        createdAt: new Date(),
-      }
-    ];
-
-    users.forEach(user => this.users.set(user.id, user as User));
-
-    // Create some projects
-    const projects = [
-      {
-        id: "proj1",
-        ownerId: "user2",
-        title: "Blockchain for Supply Chain Transparency",
-        description: "Looking for a blockchain developer to help design and implement a transparent supply chain tracking system. We need expertise in smart contracts, Ethereum, and web3 technologies.",
-        requiredSkills: ["Blockchain", "Smart Contracts", "Solidity", "Supply Chain"],
-        compensation: 15000,
-        timeline: "3-6 months",
-        status: "active",
-        remote: true,
-        location: "Remote",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "proj2",
-        ownerId: "user3",
-        title: "Neural Networks for Drug Discovery",
-        description: "Seeking a machine learning researcher to develop neural network models for predicting drug-protein interactions. Project involves working with large molecular datasets.",
-        requiredSkills: ["Machine Learning", "Neural Networks", "Drug Discovery", "PyTorch"],
-        compensation: 25000,
-        timeline: "6-12 months",
-        status: "active",
-        remote: false,
-        location: "Baltimore, MD",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    ];
-
-    projects.forEach(project => this.projects.set(project.id, project as Project));
-
-    // Create some grants
-    const grants = [
-      {
-        id: "grant1",
-        title: "NSF AI Research Grant",
-        region: "United States",
-        deadline: new Date("2025-03-15"),
-        amount: 500000,
-        url: "https://nsf.gov/funding/ai-research",
-        tags: ["AI", "Machine Learning", "Research"],
-        createdAt: new Date(),
-      },
-      {
-        id: "grant2",
-        title: "EU Horizon Climate Research",
-        region: "Europe",
-        deadline: new Date("2025-04-30"),
-        amount: 750000,
-        url: "https://ec.europa.eu/horizon-europe",
-        tags: ["Climate", "Environment", "Data Science"],
-        createdAt: new Date(),
-      }
-    ];
-
-    grants.forEach(grant => this.grants.set(grant.id, grant as Grant));
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      rating: "0.0",
-      verified: false,
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values([insertUser]).returning();
+    return result[0];
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
-    const user = this.users.get(id);
-    if (!user) throw new Error("User not found");
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    if (result.length === 0) throw new Error("User not found");
+    return result[0];
   }
 
   async getProject(id: string): Promise<Project | undefined> {
-    return this.projects.get(id);
+    const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    return result[0];
   }
 
   async getProjects(filters?: { ownerId?: string; status?: string }): Promise<Project[]> {
-    let projects = Array.from(this.projects.values());
+    let query = db.select().from(projects);
     
+    const conditions = [];
     if (filters?.ownerId) {
-      projects = projects.filter(p => p.ownerId === filters.ownerId);
+      conditions.push(eq(projects.ownerId, filters.ownerId));
     }
     if (filters?.status) {
-      projects = projects.filter(p => p.status === filters.status);
+      conditions.push(eq(projects.status, filters.status));
     }
     
-    return projects;
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(projects.createdAt));
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const id = randomUUID();
-    const project: Project = {
-      ...insertProject,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.projects.set(id, project);
-    return project;
+    const result = await db.insert(projects).values([insertProject]).returning();
+    return result[0];
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
-    const project = this.projects.get(id);
-    if (!project) throw new Error("Project not found");
-    
-    const updatedProject = { ...project, ...updates, updatedAt: new Date() };
-    this.projects.set(id, updatedProject);
-    return updatedProject;
+    const result = await db.update(projects).set(updates).where(eq(projects.id, id)).returning();
+    if (result.length === 0) throw new Error("Project not found");
+    return result[0];
   }
 
   async getApplication(id: string): Promise<Application | undefined> {
-    return this.applications.get(id);
+    const result = await db.select().from(applications).where(eq(applications.id, id)).limit(1);
+    return result[0];
   }
 
   async getApplications(filters?: { projectId?: string; userId?: string }): Promise<Application[]> {
-    let applications = Array.from(this.applications.values());
+    let query = db.select().from(applications);
     
+    const conditions = [];
     if (filters?.projectId) {
-      applications = applications.filter(a => a.projectId === filters.projectId);
+      conditions.push(eq(applications.projectId, filters.projectId));
     }
     if (filters?.userId) {
-      applications = applications.filter(a => a.userId === filters.userId);
+      conditions.push(eq(applications.userId, filters.userId));
     }
     
-    return applications;
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(applications.createdAt));
   }
 
   async createApplication(insertApplication: InsertApplication): Promise<Application> {
-    const id = randomUUID();
-    const application: Application = {
-      ...insertApplication,
-      id,
-      createdAt: new Date(),
-    };
-    this.applications.set(id, application);
-    return application;
+    const result = await db.insert(applications).values([insertApplication]).returning();
+    return result[0];
   }
 
   async updateApplication(id: string, updates: Partial<Application>): Promise<Application> {
-    const application = this.applications.get(id);
-    if (!application) throw new Error("Application not found");
-    
-    const updatedApplication = { ...application, ...updates };
-    this.applications.set(id, updatedApplication);
-    return updatedApplication;
+    const result = await db.update(applications).set(updates).where(eq(applications.id, id)).returning();
+    if (result.length === 0) throw new Error("Application not found");
+    return result[0];
   }
 
   async getMessages(filters: { senderId?: string; receiverId?: string; projectId?: string }): Promise<Message[]> {
-    let messages = Array.from(this.messages.values());
+    let query = db.select().from(messages);
     
-    if (filters.senderId) {
-      messages = messages.filter(m => m.senderId === filters.senderId);
-    }
-    if (filters.receiverId) {
-      messages = messages.filter(m => m.receiverId === filters.receiverId);
+    const conditions = [];
+    if (filters.senderId && filters.receiverId) {
+      conditions.push(
+        or(
+          and(eq(messages.senderId, filters.senderId), eq(messages.receiverId, filters.receiverId)),
+          and(eq(messages.senderId, filters.receiverId), eq(messages.receiverId, filters.senderId))
+        )
+      );
+    } else {
+      if (filters.senderId) {
+        conditions.push(eq(messages.senderId, filters.senderId));
+      }
+      if (filters.receiverId) {
+        conditions.push(eq(messages.receiverId, filters.receiverId));
+      }
     }
     if (filters.projectId) {
-      messages = messages.filter(m => m.projectId === filters.projectId);
+      conditions.push(eq(messages.projectId, filters.projectId));
     }
     
-    return messages.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(messages.createdAt));
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const id = randomUUID();
-    const message: Message = {
-      ...insertMessage,
-      id,
-      createdAt: new Date(),
-    };
-    this.messages.set(id, message);
-    return message;
+    const result = await db.insert(messages).values([insertMessage]).returning();
+    return result[0];
   }
 
   async markMessageAsRead(id: string): Promise<void> {
-    const message = this.messages.get(id);
-    if (message) {
-      message.readAt = new Date();
-      this.messages.set(id, message);
-    }
+    await db.update(messages).set({ readAt: new Date() }).where(eq(messages.id, id));
   }
 
   async getGrants(filters?: { region?: string; tags?: string[] }): Promise<Grant[]> {
-    let grants = Array.from(this.grants.values());
+    let query = db.select().from(grants);
     
-    if (filters?.region) {
-      grants = grants.filter(g => g.region === filters.region);
-    }
-    if (filters?.tags && filters.tags.length > 0) {
-      grants = grants.filter(g => 
-        g.tags?.some(tag => filters.tags!.includes(tag))
-      );
+    // Note: For complex filtering with JSONB arrays, you might need to use raw SQL
+    // For now, we'll return all grants and filter in memory if needed
+    const allGrants = await query.orderBy(desc(grants.createdAt));
+    
+    if (filters) {
+      return allGrants.filter(grant => {
+        if (filters.region && grant.region !== filters.region) {
+          return false;
+        }
+        if (filters.tags && filters.tags.length > 0 && grant.tags) {
+          const grantTags = grant.tags as string[];
+          if (!filters.tags.some(tag => grantTags.includes(tag))) {
+            return false;
+          }
+        }
+        return true;
+      });
     }
     
-    return grants;
+    return allGrants;
   }
 
   async createGrant(insertGrant: InsertGrant): Promise<Grant> {
-    const id = randomUUID();
-    const grant: Grant = {
-      ...insertGrant,
-      id,
-      createdAt: new Date(),
-    };
-    this.grants.set(id, grant);
-    return grant;
+    const result = await db.insert(grants).values([insertGrant]).returning();
+    return result[0];
   }
 
   async getNotifications(userId: string): Promise<Notification[]> {
-    return Array.from(this.notifications.values())
-      .filter(n => n.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const id = randomUUID();
-    const notification: Notification = {
-      ...insertNotification,
-      id,
-      createdAt: new Date(),
-    };
-    this.notifications.set(id, notification);
-    return notification;
+    const result = await db.insert(notifications).values([insertNotification]).returning();
+    return result[0];
   }
 
   async markNotificationAsRead(id: string): Promise<void> {
-    const notification = this.notifications.get(id);
-    if (notification) {
-      notification.readAt = new Date();
-      this.notifications.set(id, notification);
-    }
+    await db.update(notifications).set({ readAt: new Date() }).where(eq(notifications.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

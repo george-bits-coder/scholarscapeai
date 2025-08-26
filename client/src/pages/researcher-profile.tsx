@@ -10,7 +10,7 @@ import { Star, MapPin, Mail } from "lucide-react";
 export default function ResearcherProfile() {
   const [, params] = useRoute("/researchers/:id");
 
-  const { data: researcher, isLoading } = useQuery({
+  const { data: researcher, isLoading } = useQuery<any>({
     queryKey: ["/api/researchers", params?.id],
   });
 

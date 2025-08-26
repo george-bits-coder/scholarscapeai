@@ -10,7 +10,7 @@ export default function MessageWidget() {
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch recent messages
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [] } = useQuery<any[]>({
     queryKey: ["/api/messages"],
   });
 

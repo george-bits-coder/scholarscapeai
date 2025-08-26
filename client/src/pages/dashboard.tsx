@@ -41,12 +41,12 @@ export default function Dashboard() {
   });
 
   // Fetch user's applications
-  const { data: applications = [] } = useQuery({
+  const { data: applications = [] } = useQuery<any[]>({
     queryKey: ["/api/applications", { userId: user?.id }],
   });
 
   // Fetch notifications
-  const { data: notifications = [] } = useQuery({
+  const { data: notifications = [] } = useQuery<any[]>({
     queryKey: ["/api/notifications"],
   });
 

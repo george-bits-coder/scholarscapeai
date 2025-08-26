@@ -17,7 +17,7 @@ export default function Header() {
   const [activeNav, setActiveNav] = useState("dashboard");
 
   // Fetch notifications
-  const { data: notifications = [] } = useQuery({
+  const { data: notifications = [] } = useQuery<any[]>({
     queryKey: ["/api/notifications"],
   });
 
@@ -114,7 +114,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-3" data-testid="button-user-menu">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={user?.profileImage} />
+                    <AvatarImage src={user?.profileImage || undefined} />
                     <AvatarFallback>
                       {user?.name?.split(" ").map(n => n[0]).join("")}
                     </AvatarFallback>

@@ -13,7 +13,7 @@ export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
   const [showApplicationModal, setShowApplicationModal] = useState(false);
 
-  const { data: project, isLoading } = useQuery({
+  const { data: project, isLoading } = useQuery<any>({
     queryKey: ["/api/projects", params?.id],
   });
 

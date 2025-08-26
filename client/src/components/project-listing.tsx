@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
-import ApplicationModal from "./application-modal";
+import ApplicationModal from "@/components/application-modal";
 import { useLocation } from "wouter";
 
 interface ProjectListingProps {

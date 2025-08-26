@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -258,14 +259,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Researchers routes
   app.get("/api/researchers", async (req, res) => {
     try {
-      const users = Array.from((storage as any).users.values())
-        .filter((user: any) => user.verified)
-        .map((user: any) => {
-          const { password, ...publicUser } = user;
-          return publicUser;
-        });
+      const { role } = req.query;
+      let users;
       
-      res.json(users);
+      if (role) {
+        users = await storage.getUsersByRole(role as string);
+      } else {
+        // Get all verified users for backward compatibility
+        users = await storage.getUsersByRole("researcher");
+        const professors = await storage.getUsersByRole("professor");
+        const students = await storage.getUsersByRole("student");
+        users = [...users, ...professors, ...students].filter(user => user.verified);
+      }
+      
+      // Remove password from response
+      const publicUsers = users.map(user => {
+        const { password, ...publicUser } = user;
+        return publicUser;
+      });
+      
+      res.json(publicUsers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch researchers" });
     }
@@ -282,6 +295,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(publicUser);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch researcher" });
+    }
+  });
+
+  // AI Matching Routes
+  app.get("/api/recommendations/projects", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const user = req.user!;
+      
+      // Only students can get project recommendations
+      if (user.role !== "student") {
+        return res.status(403).json({ error: "Only students can get project recommendations" });
+      }
+
+      const { limit = "10" } = req.query;
+      const matches = await matchingService.findProjectMatchesForStudent(
+        user.id, 
+        parseInt(limit as string)
+      );
+      
+      res.json(matches);
+    } catch (error) {
+      console.error("Error getting project recommendations:", error);
+      res.status(500).json({ error: "Failed to get project recommendations" });
+    }
+  });
+
+  app.get("/api/recommendations/students/:projectId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const user = req.user!;
+      const projectId = req.params.projectId;
+      
+      // Verify user owns this project or is a professor
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== user.id && user.role !== "professor") {
+        return res.status(403).json({ error: "Not authorized to view student recommendations for this project" });
+      }
+
+      const { limit = "10" } = req.query;
+      const matches = await matchingService.findStudentMatchesForProject(
+        projectId, 
+        parseInt(limit as string)
+      );
+      
+      res.json(matches);
+    } catch (error) {
+      console.error("Error getting student recommendations:", error);
+      res.status(500).json({ error: "Failed to get student recommendations" });
+    }
+  });
+
+  app.post("/api/embeddings/update-profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      await matchingService.updateUserEmbedding(req.user!.id);
+      res.json({ success: true, message: "Profile embedding updated" });
+    } catch (error) {
+      console.error("Error updating profile embedding:", error);
+      res.status(500).json({ error: "Failed to update profile embedding" });
+    }
+  });
+
+  app.post("/api/embeddings/update-project/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to update this project's embedding" });
+      }
+
+      await matchingService.updateProjectEmbedding(req.params.id);
+      res.json({ success: true, message: "Project embedding updated" });
+    } catch (error) {
+      console.error("Error updating project embedding:", error);
+      res.status(500).json({ error: "Failed to update project embedding" });
     }
   });
 

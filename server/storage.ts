@@ -35,6 +35,8 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
   
+  getUsersByRole(role: string): Promise<User[]>;
+  
   sessionStore: any;
 }
 
@@ -64,7 +66,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values([insertUser]).returning();
+    const result = await db.insert(users).values([insertUser as any]).returning();
     return result[0];
   }
 
@@ -98,7 +100,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const result = await db.insert(projects).values([insertProject]).returning();
+    const result = await db.insert(projects).values([insertProject as any]).returning();
     return result[0];
   }
 
@@ -207,7 +209,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGrant(insertGrant: InsertGrant): Promise<Grant> {
-    const result = await db.insert(grants).values([insertGrant]).returning();
+    const result = await db.insert(grants).values([insertGrant as any]).returning();
     return result[0];
   }
 
@@ -222,6 +224,10 @@ export class DatabaseStorage implements IStorage {
 
   async markNotificationAsRead(id: string): Promise<void> {
     await db.update(notifications).set({ readAt: new Date() }).where(eq(notifications.id, id));
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
   }
 }
 

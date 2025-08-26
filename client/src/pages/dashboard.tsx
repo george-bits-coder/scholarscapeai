@@ -5,6 +5,7 @@ import ProjectCard from "@/components/project-card";
 import ProjectListing from "@/components/project-listing";
 import ResearcherCard from "@/components/researcher-card";
 import MessageWidget from "@/components/message-widget";
+import { ProjectRecommendations } from "@/components/recommendations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,8 +235,17 @@ export default function Dashboard() {
                 </TabsContent>
 
                 <TabsContent value="browse" className="p-6">
+                  {/* Show AI Recommendations for Students */}
+                  {user?.role === "student" && (
+                    <div className="mb-8">
+                      <ProjectRecommendations />
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Available Research Projects</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {user?.role === "student" ? "All Projects" : "Available Research Projects"}
+                    </h2>
                     <div className="flex items-center space-x-3">
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />

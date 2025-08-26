@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { insertUserSchema } from "@shared/schema";
 
@@ -55,6 +56,9 @@ export default function AuthPage() {
       name: "",
       affiliation: "",
       bio: "",
+      role: "student",
+      academicLevel: "",
+      researchInterests: "",
       skills: [],
       publications: [],
     },
@@ -70,7 +74,14 @@ export default function AuthPage() {
 
   const onRegister = (data: RegisterData) => {
     const { confirmPassword, ...userData } = data;
-    registerMutation.mutate(userData, {
+    // Convert research interests string to array
+    const processedData = {
+      ...userData,
+      researchInterests: typeof userData.researchInterests === 'string' && userData.researchInterests ? 
+        userData.researchInterests.split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
+        []
+    };
+    registerMutation.mutate(processedData, {
       onSuccess: () => {
         setLocation("/");
       },
@@ -224,6 +235,77 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={registerForm.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Role</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value || "student"}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-role">
+                                  <SelectValue placeholder="Select your role" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="student">Student</SelectItem>
+                                <SelectItem value="professor">Professor</SelectItem>
+                                <SelectItem value="researcher">Researcher</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="academicLevel"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Academic Level</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-academic-level">
+                                  <SelectValue placeholder="Select your level" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="undergraduate">Undergraduate</SelectItem>
+                                <SelectItem value="graduate">Graduate Student</SelectItem>
+                                <SelectItem value="postdoc">Postdoc</SelectItem>
+                                <SelectItem value="faculty">Faculty</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={registerForm.control}
+                      name="researchInterests"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Research Interests</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="AI, Machine Learning, Computer Vision, NLP..." 
+                              data-testid="input-research-interests" 
+                              {...field}
+                              value={typeof field.value === 'string' ? field.value : (field.value as string[])?.join(', ') || ""}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Separate multiple interests with commas - helps us match you with relevant opportunities
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     <FormField
                       control={registerForm.control}
                       name="bio"
@@ -232,7 +314,7 @@ export default function AuthPage() {
                           <FormLabel>Bio</FormLabel>
                           <FormControl>
                             <Textarea 
-                              placeholder="Brief description of your research interests..." 
+                              placeholder="Brief description of your background and experience..." 
                               data-testid="input-bio" 
                               {...field}
                               value={field.value || ""}

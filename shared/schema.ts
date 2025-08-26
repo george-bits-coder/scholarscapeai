@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, decimal, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, decimal, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,6 +16,10 @@ export const users = pgTable("users", {
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0.0"),
   profileImage: text("profile_image"),
   verified: boolean("verified").default(false),
+  role: text("role").notNull().default("researcher"), // student, professor, researcher
+  researchInterests: jsonb("research_interests").$type<string[]>().default([]),
+  academicLevel: text("academic_level"), // undergraduate, graduate, postdoc, faculty
+  profileEmbedding: jsonb("profile_embedding").$type<number[]>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -30,6 +34,7 @@ export const projects = pgTable("projects", {
   status: text("status").notNull().default("active"), // active, in_review, planning, completed
   remote: boolean("remote").default(true),
   location: text("location"),
+  projectEmbedding: jsonb("project_embedding").$type<number[]>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -83,12 +88,14 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   rating: true,
   verified: true,
+  profileEmbedding: true,
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  projectEmbedding: true,
 });
 
 export const insertApplicationSchema = createInsertSchema(applications).omit({

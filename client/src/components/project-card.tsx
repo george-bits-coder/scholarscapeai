@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import EditProjectModal from "./edit-project-modal";
 import type { Project } from "@shared/schema";
 
 interface ProjectCardProps {
@@ -10,6 +13,7 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
+  const [showEditModal, setShowEditModal] = useState(false);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -55,17 +59,37 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               {project.status.replace('_', ' ')}
             </Badge>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => {
-              // TODO: Implement project menu with edit/delete options
-              alert('Project menu coming soon!');
-            }}
-            data-testid="button-project-menu"
-          >
-            <MoreHorizontal className="w-5 h-5 text-gray-400" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                data-testid="button-project-menu"
+              >
+                <MoreHorizontal className="w-5 h-5 text-gray-400" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={() => setShowEditModal(true)}
+                data-testid="menu-item-edit"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Project
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  // TODO: Implement delete functionality
+                  alert('Delete functionality coming soon!');
+                }}
+                className="text-red-600"
+                data-testid="menu-item-delete"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <p className="text-gray-600 text-sm mb-4 line-clamp-3" data-testid="project-description">
@@ -113,6 +137,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           </p>
         </div>
       </CardContent>
+      
+      {/* Edit Project Modal */}
+      {showEditModal && (
+        <EditProjectModal
+          project={project}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </Card>
   );
 }

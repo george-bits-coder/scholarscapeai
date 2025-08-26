@@ -67,6 +67,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/projects/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to edit this project" });
+      }
+
+      const updatedProject = await storage.updateProject(req.params.id, req.body);
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Error updating project:", error);
+      res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
   // Applications routes
   app.get("/api/applications", async (req, res) => {
     if (!req.isAuthenticated()) {

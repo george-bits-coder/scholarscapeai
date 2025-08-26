@@ -61,7 +61,7 @@ export default function Dashboard() {
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesField = !selectedField || 
+    const matchesField = !selectedField || selectedField === "all" || 
       project.requiredSkills?.some((skill: string) => skill.toLowerCase().includes(selectedField.toLowerCase()));
     
     return matchesSearch && matchesField;
@@ -272,7 +272,7 @@ export default function Dashboard() {
                           <SelectValue placeholder="All Fields" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Fields</SelectItem>
+                          <SelectItem value="all">All Fields</SelectItem>
                           <SelectItem value="Computer Science">Computer Science</SelectItem>
                           <SelectItem value="Biology">Biology</SelectItem>
                           <SelectItem value="Physics">Physics</SelectItem>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,8 +34,14 @@ export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
 
   // Redirect if already logged in
+  React.useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // Don't render the form if user is already logged in
   if (user) {
-    setLocation("/");
     return null;
   }
 

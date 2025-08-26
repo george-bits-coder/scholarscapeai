@@ -218,10 +218,7 @@ export default function AuthPage() {
                               placeholder="jane.smith@university.edu" 
                               data-testid="input-email" 
                               autoComplete="email"
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                              onBlur={field.onBlur}
-                              name={field.name}
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />

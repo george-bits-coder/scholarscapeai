@@ -99,6 +99,10 @@ export default function ProjectListing({ project }: ProjectListingProps) {
               </Button>
               <Button 
                 variant="outline"
+                onClick={() => {
+                  // TODO: Implement save project functionality
+                  alert('Project saved!');
+                }}
                 data-testid="button-save"
               >
                 Save

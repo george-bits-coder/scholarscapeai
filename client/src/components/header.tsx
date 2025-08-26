@@ -95,6 +95,10 @@ export default function Header() {
               variant="ghost" 
               size="icon" 
               className="relative"
+              onClick={() => {
+                // TODO: Implement notifications panel
+                alert(`You have ${unreadCount} unread notifications`);
+              }}
               data-testid="button-notifications"
             >
               <Bell className="w-5 h-5" />
@@ -131,10 +135,22 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem data-testid="menu-profile">
+                <DropdownMenuItem 
+                  onClick={() => {
+                    // TODO: Navigate to profile page
+                    alert('Profile page coming soon!');
+                  }}
+                  data-testid="menu-profile"
+                >
                   View Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem data-testid="menu-settings">
+                <DropdownMenuItem 
+                  onClick={() => {
+                    // TODO: Navigate to settings page
+                    alert('Settings page coming soon!');
+                  }}
+                  data-testid="menu-settings"
+                >
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem 

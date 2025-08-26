@@ -55,7 +55,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               {project.status.replace('_', ' ')}
             </Badge>
           </div>
-          <Button variant="ghost" size="icon" data-testid="button-project-menu">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => {
+              // TODO: Implement project menu with edit/delete options
+              alert('Project menu coming soon!');
+            }}
+            data-testid="button-project-menu"
+          >
             <MoreHorizontal className="w-5 h-5 text-gray-400" />
           </Button>
         </div>

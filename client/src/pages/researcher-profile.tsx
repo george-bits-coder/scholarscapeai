@@ -99,10 +99,24 @@ export default function ResearcherProfile() {
               </div>
               
               <div className="flex flex-col space-y-2">
-                <Button className="bg-primary text-white hover:bg-blue-700" data-testid="button-message">
+                <Button 
+                  className="bg-primary text-white hover:bg-blue-700" 
+                  onClick={() => {
+                    // TODO: Implement messaging functionality
+                    alert('Messaging feature coming soon!');
+                  }}
+                  data-testid="button-message"
+                >
                   Send Message
                 </Button>
-                <Button variant="outline" data-testid="button-connect">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // TODO: Implement connection functionality
+                    alert('Connection request sent!');
+                  }}
+                  data-testid="button-connect"
+                >
                   Connect
                 </Button>
               </div>

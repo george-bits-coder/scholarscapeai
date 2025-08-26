@@ -119,7 +119,14 @@ export default function ProjectDetail() {
                   >
                     Apply to Project
                   </Button>
-                  <Button variant="outline" data-testid="button-save">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      // TODO: Implement save project functionality
+                      alert('Project saved!');
+                    }}
+                    data-testid="button-save"
+                  >
                     Save Project
                   </Button>
                 </div>

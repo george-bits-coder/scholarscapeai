@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   publications: jsonb("publications").$type<string[]>().default([]),
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0.0"),
   profileImage: text("profile_image"),
+  cvUrl: text("cv_url"), // CV/Resume file URL
   verified: boolean("verified").default(false),
   role: text("role").notNull().default("researcher"), // student, professor, researcher
   researchInterests: jsonb("research_interests").$type<string[]>().default([]),

@@ -12,6 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { insertUserSchema } from "@shared/schema";
+import { CVUploader } from "@/components/cv-uploader";
+import { apiRequest } from "@/lib/queryClient";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -32,6 +34,7 @@ type RegisterData = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [, setLocation] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
+  const [cvUrl, setCvUrl] = useState<string>("");
   const { user, loginMutation, registerMutation } = useAuth();
 
   const loginForm = useForm<LoginData>({
@@ -79,11 +82,12 @@ export default function AuthPage() {
     });
   };
 
-  const onRegister = (data: RegisterData) => {
+  const onRegister = async (data: RegisterData) => {
     const { confirmPassword, ...userData } = data;
     // Convert research interests string to array
     const processedData = {
       ...userData,
+      cvUrl,
       researchInterests: userData.researchInterests ? 
         userData.researchInterests.split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
         []
@@ -93,6 +97,10 @@ export default function AuthPage() {
         setLocation("/");
       },
     });
+  };
+
+  const handleCVUpload = async (uploadedCvUrl: string) => {
+    setCvUrl(uploadedCvUrl);
   };
 
   return (
@@ -331,6 +339,14 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
+
+                    {/* CV Upload Section */}
+                    <CVUploader
+                      onUpload={handleCVUpload}
+                      currentCV={cvUrl}
+                      className="mb-4"
+                    />
+
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={registerForm.control}

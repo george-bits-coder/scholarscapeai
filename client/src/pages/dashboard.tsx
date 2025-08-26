@@ -8,6 +8,7 @@ import ResearcherCard from "@/components/researcher-card";
 import MessageWidget from "@/components/message-widget";
 import { ProjectRecommendations } from "@/components/recommendations";
 import CreateProjectModal from "@/components/create-project-modal";
+import { ApplicantProfileModal } from "@/components/applicant-profile-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState("");
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [selectedApplicant, setSelectedApplicant] = useState<User | null>(null);
 
   // Application status update mutation
   const updateApplicationStatusMutation = useMutation({
@@ -252,9 +254,16 @@ export default function Dashboard() {
                                   {projectInfo?.title || "Unknown Project"}
                                 </h3>
                                 {user?.role === "professor" && applicantInfo && (
-                                  <p className="text-sm text-gray-600 mb-2">
-                                    Applicant: {applicantInfo.name} ({applicantInfo.username})
-                                  </p>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className="text-sm text-gray-600">Applicant:</span>
+                                    <button
+                                      onClick={() => setSelectedApplicant(applicantInfo)}
+                                      className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                                      data-testid="button-view-applicant"
+                                    >
+                                      {applicantInfo.name} ({applicantInfo.username})
+                                    </button>
+                                  </div>
                                 )}
                                 <p className="text-gray-600 mb-3">{actualApplication.coverLetter}</p>
                                 <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -476,6 +485,15 @@ export default function Dashboard() {
         isOpen={showCreateProject} 
         onClose={() => setShowCreateProject(false)} 
       />
+
+      {/* Applicant Profile Modal */}
+      {selectedApplicant && (
+        <ApplicantProfileModal
+          applicant={selectedApplicant}
+          isOpen={!!selectedApplicant}
+          onClose={() => setSelectedApplicant(null)}
+        />
+      )}
     </div>
   );
 }

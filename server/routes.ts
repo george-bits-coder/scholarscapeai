@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -499,6 +500,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating project embedding:", error);
       res.status(500).json({ error: "Failed to update project embedding" });
+    }
+  });
+
+  // Object Storage Routes
+  app.post("/api/objects/upload", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Serve private objects (CVs and user uploads)
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Update user CV endpoint
+  app.put("/api/users/cv", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { cvUrl } = req.body;
+      if (!cvUrl) {
+        return res.status(400).json({ error: "CV URL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(cvUrl);
+      
+      await storage.updateUser(req.user!.id, { cvUrl: normalizedPath });
+      res.json({ success: true, cvUrl: normalizedPath });
+    } catch (error) {
+      console.error("Error updating CV:", error);
+      res.status(500).json({ error: "Failed to update CV" });
     }
   });
 

@@ -22,19 +22,29 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  if (!hashed || !salt) {
+  try {
+    const [hashed, salt] = stored.split(".");
+    if (!hashed || !salt) {
+      console.log("Password format error: missing hash or salt");
+      return false;
+    }
+    
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    
+    // Ensure buffers are the same length before comparison
+    if (hashedBuf.length !== suppliedBuf.length) {
+      console.log(`Buffer length mismatch: stored=${hashedBuf.length}, supplied=${suppliedBuf.length}`);
+      return false;
+    }
+    
+    const result = timingSafeEqual(hashedBuf, suppliedBuf);
+    console.log(`Password comparison result: ${result}`);
+    return result;
+  } catch (error) {
+    console.error("Error comparing passwords:", error);
     return false;
   }
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  
-  // Ensure buffers are the same length before comparison
-  if (hashedBuf.length !== suppliedBuf.length) {
-    return false;
-  }
-  
-  return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
 export function setupAuth(app: Express) {
@@ -58,10 +68,20 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
+      console.log(`Login attempt for username: ${username}`);
       const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
+      if (!user) {
+        console.log("User not found");
+        return done(null, false);
+      }
+      
+      console.log(`Stored password format: ${user.password.substring(0, 20)}...`);
+      const passwordMatch = await comparePasswords(password, user.password);
+      if (!passwordMatch) {
+        console.log("Password comparison failed");
         return done(null, false);
       } else {
+        console.log("Login successful");
         return done(null, user);
       }
     }),

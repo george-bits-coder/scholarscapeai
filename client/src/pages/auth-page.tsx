@@ -206,25 +206,25 @@ export default function AuthPage() {
                         )}
                       />
                     </div>
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="text" 
-                              placeholder="" 
-                              data-testid="input-email" 
-                              autoComplete="off"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="space-y-2">
+                      <label htmlFor="user-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Email
+                      </label>
+                      <Input 
+                        id="user-email"
+                        type="text" 
+                        placeholder="" 
+                        data-testid="input-email" 
+                        autoComplete="off"
+                        value={registerForm.watch("email") || ""}
+                        onChange={(e) => registerForm.setValue("email", e.target.value, { shouldValidate: true })}
+                      />
+                      {registerForm.formState.errors.email && (
+                        <p className="text-sm font-medium text-destructive">
+                          {registerForm.formState.errors.email.message}
+                        </p>
                       )}
-                    />
+                    </div>
                     <FormField
                       control={registerForm.control}
                       name="affiliation"

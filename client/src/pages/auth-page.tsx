@@ -56,6 +56,7 @@ export default function AuthPage() {
       academicLevel: undefined,
       researchInterests: "",
     },
+    mode: "onChange",
   });
 
   // Redirect if already logged in
@@ -214,9 +215,9 @@ export default function AuthPage() {
                           <FormControl>
                             <Input 
                               type="text" 
-                              placeholder="jane.smith@university.edu" 
+                              placeholder="" 
                               data-testid="input-email" 
-                              autoComplete="username"
+                              autoComplete="off"
                               {...field}
                             />
                           </FormControl>

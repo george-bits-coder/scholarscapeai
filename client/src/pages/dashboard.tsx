@@ -25,7 +25,8 @@ export default function Dashboard() {
 
   // Fetch user's projects
   const { data: userProjects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects", { owner: user?.id }],
+    queryKey: ["/api/projects", "owner", user?.id],
+    enabled: !!user,
   });
 
   // Fetch all available projects
@@ -45,7 +46,8 @@ export default function Dashboard() {
 
   // Fetch user's applications
   const { data: applications = [] } = useQuery<any[]>({
-    queryKey: ["/api/applications", { userId: user?.id }],
+    queryKey: ["/api/applications"],
+    enabled: !!user,
   });
 
   // Fetch notifications

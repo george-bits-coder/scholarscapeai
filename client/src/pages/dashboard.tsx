@@ -38,6 +38,9 @@ export default function Dashboard() {
   // Fetch user's projects
   const { data: userProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects", "owner", user?.id],
+    queryFn: () => fetch(`/api/projects?owner=${user?.id}`, {
+      credentials: "include"
+    }).then(res => res.json()),
     enabled: !!user,
   });
 

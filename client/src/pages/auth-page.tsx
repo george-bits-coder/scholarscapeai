@@ -53,10 +53,8 @@ export default function AuthPage() {
       affiliation: "",
       bio: "",
       role: "student",
-      academicLevel: "",
+      academicLevel: undefined,
       researchInterests: "",
-      skills: [],
-      publications: [],
     },
   });
 
@@ -218,8 +216,11 @@ export default function AuthPage() {
                               type="email" 
                               placeholder="jane.smith@university.edu" 
                               data-testid="input-email" 
-                              autoComplete="email"
+                              autoComplete="off"
+                              spellCheck="false"
                               {...field}
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
                           <FormMessage />

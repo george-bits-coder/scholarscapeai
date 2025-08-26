@@ -73,11 +73,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const { projectId } = req.query;
-      const applications = await storage.getApplications({
-        projectId: projectId as string,
-        userId: req.user!.id,
-      });
+      const { projectId, type } = req.query;
+      let applications;
+      
+      if (type === "received") {
+        // Get applications TO projects owned by the current user
+        const userProjects = await storage.getProjects({ ownerId: req.user!.id });
+        const allApplications = [];
+        
+        for (const project of userProjects) {
+          const projectApplications = await storage.getApplications({ projectId: project.id });
+          allApplications.push(...projectApplications);
+        }
+        applications = allApplications;
+      } else {
+        // Default: Get applications made BY the current user
+        applications = await storage.getApplications({
+          projectId: projectId as string,
+          userId: req.user!.id,
+        });
+      }
       
       // Get applicant details for each application
       const applicationsWithDetails = await Promise.all(
@@ -90,6 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(applicationsWithDetails);
     } catch (error) {
+      console.error("Error fetching applications:", error);
       res.status(500).json({ error: "Failed to fetch applications" });
     }
   });

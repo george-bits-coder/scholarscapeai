@@ -45,9 +45,19 @@ export default function Dashboard() {
   });
 
   // Fetch user's applications
-  const { data: applications = [] } = useQuery<any[]>({
+  // Get applications sent by the current user
+  const { data: sentApplications = [] } = useQuery<any[]>({
     queryKey: ["/api/applications"],
     enabled: !!user,
+  });
+
+  // Get applications received to projects owned by the current user
+  const { data: receivedApplications = [] } = useQuery<any[]>({
+    queryKey: ["/api/applications", "received"],
+    queryFn: () => fetch("/api/applications?type=received", {
+      credentials: "include"
+    }).then(res => res.json()),
+    enabled: !!user && user.role === "professor",
   });
 
   // Fetch notifications
@@ -92,7 +102,7 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Applications</span>
                     <span className="text-lg font-semibold text-accent" data-testid="stat-applications">
-                      {applications.length}
+                      {user?.role === "professor" ? receivedApplications.length : sentApplications.length}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -205,10 +215,12 @@ export default function Dashboard() {
                 </TabsContent>
 
                 <TabsContent value="applications" className="p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">My Applications</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    {user?.role === "professor" ? "Applications Received" : "My Applications"}
+                  </h2>
                   
                   <div className="space-y-4">
-                    {applications.map((application: any) => (
+                    {(user?.role === "professor" ? receivedApplications : sentApplications).map((application: any) => (
                       <Card key={application.id} className="hover:shadow-md transition-shadow">
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start">
@@ -216,6 +228,11 @@ export default function Dashboard() {
                               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                                 {application.project?.title}
                               </h3>
+                              {user?.role === "professor" && (
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Applicant: {application.applicant?.name} ({application.applicant?.username})
+                                </p>
+                              )}
                               <p className="text-gray-600 mb-3">{application.coverLetter}</p>
                               <div className="flex items-center space-x-4 text-sm text-gray-500">
                                 <span>Applied: {new Date(application.createdAt).toLocaleDateString()}</span>
@@ -238,9 +255,11 @@ export default function Dashboard() {
                       </Card>
                     ))}
                     
-                    {applications.length === 0 && (
+                    {(user?.role === "professor" ? receivedApplications : sentApplications).length === 0 && (
                       <div className="text-center py-12">
-                        <p className="text-gray-500">No applications yet</p>
+                        <p className="text-gray-500">
+                          {user?.role === "professor" ? "No applications received yet" : "No applications yet"}
+                        </p>
                       </div>
                     )}
                   </div>

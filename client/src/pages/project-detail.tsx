@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import Header from "@/components/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ApplicationModal from "@/components/application-modal";
 import { useState } from "react";
-import { MapPin, Calendar, DollarSign, Users } from "lucide-react";
+import { MapPin, Calendar, DollarSign, Users, ArrowLeft } from "lucide-react";
 
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
+  const [, setLocation] = useLocation();
   const [showApplicationModal, setShowApplicationModal] = useState(false);
 
   const { data: project, isLoading } = useQuery<any>({
@@ -54,6 +55,17 @@ export default function ProjectDetail() {
       <Header />
       
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation("/")}
+          className="mb-4 flex items-center space-x-2"
+          data-testid="button-back"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Dashboard</span>
+        </Button>
+        
         <Card>
           <CardContent className="p-8">
             {/* Project Header */}

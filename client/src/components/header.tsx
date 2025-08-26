@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { Bell, ChevronDown } from "lucide-react";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
+  const [, setLocation] = useLocation();
   const [activeNav, setActiveNav] = useState("dashboard");
 
   // Fetch notifications
@@ -42,7 +44,10 @@ export default function Header() {
             
             <nav className="hidden md:flex space-x-6">
               <button
-                onClick={() => setActiveNav("dashboard")}
+                onClick={() => {
+                  setActiveNav("dashboard");
+                  setLocation("/");
+                }}
                 className={`${
                   activeNav === "dashboard" 
                     ? "text-primary font-medium border-b-2 border-primary pb-1" 

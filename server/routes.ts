@@ -78,32 +78,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (type === "received") {
         // Get applications TO projects owned by the current user
-        const userProjects = await storage.getProjects({ ownerId: req.user!.id });
-        const allApplications = [];
-        
-        for (const project of userProjects) {
-          const projectApplications = await storage.getApplications({ projectId: project.id });
-          allApplications.push(...projectApplications);
-        }
-        applications = allApplications;
+        applications = await storage.getApplicationsForProjectOwner(req.user!.id);
+      } else if (projectId) {
+        // Get applications for a specific project
+        applications = await storage.getApplicationsForProject(projectId as string);
       } else {
         // Default: Get applications made BY the current user
-        applications = await storage.getApplications({
-          projectId: projectId as string,
-          userId: req.user!.id,
-        });
+        applications = await storage.getApplicationsForUser(req.user!.id);
       }
       
-      // Get applicant details for each application
-      const applicationsWithDetails = await Promise.all(
-        applications.map(async (application) => {
-          const applicant = await storage.getUser(application.userId);
-          const project = await storage.getProject(application.projectId);
-          return { ...application, applicant, project };
-        })
-      );
-      
-      res.json(applicationsWithDetails);
+      res.json(applications);
     } catch (error) {
       console.error("Error fetching applications:", error);
       res.status(500).json({ error: "Failed to fetch applications" });
@@ -141,6 +125,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update application status
+  app.put("/api/applications/:id/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { status, reviewNotes } = req.body;
+      
+      // Validate status
+      if (!['submitted', 'under_review', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const application = await storage.getApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Check if user owns the project this application belongs to
+      const project = await storage.getProject(application.projectId);
+      if (!project || project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to update this application" });
+      }
+
+      const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
+      
+      // Create notification for applicant
+      await storage.createNotification({
+        userId: application.userId,
+        type: "application",
+        title: "Application Status Update",
+        content: `Your application for "${project.title}" has been ${status.replace('_', ' ')}`,
+        payload: { applicationId: application.id, projectId: project.id },
+      });
+      
+      res.json(updatedApplication);
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      res.status(500).json({ error: "Failed to update application status" });
+    }
+  });
+
   app.put("/api/applications/:id", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -160,18 +187,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedApplication = await storage.updateApplication(req.params.id, req.body);
       
-      // Create notification for applicant
-      await storage.createNotification({
-        userId: application.userId,
-        type: "application",
-        title: "Application Status Update",
-        content: `Your application for "${project.title}" has been ${req.body.status}`,
-        payload: { applicationId: application.id, projectId: project.id },
-      });
-      
       res.json(updatedApplication);
     } catch (error) {
       res.status(500).json({ error: "Failed to update application" });
+    }
+  });
+
+  // Application comments routes
+  app.get("/api/applications/:id/comments", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const application = await storage.getApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Check if user is involved (applicant or project owner)
+      const project = await storage.getProject(application.projectId);
+      if (!project || (project.ownerId !== req.user!.id && application.userId !== req.user!.id)) {
+        return res.status(403).json({ error: "Not authorized to view these comments" });
+      }
+
+      const comments = await storage.getApplicationComments(req.params.id);
+      res.json(comments);
+    } catch (error) {
+      console.error('Error fetching application comments:', error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/applications/:id/comments", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { content, isInternal } = req.body;
+      
+      const application = await storage.getApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Check if user is involved (applicant or project owner)
+      const project = await storage.getProject(application.projectId);
+      if (!project || (project.ownerId !== req.user!.id && application.userId !== req.user!.id)) {
+        return res.status(403).json({ error: "Not authorized to comment on this application" });
+      }
+
+      // Only project owners can create internal comments
+      const finalIsInternal = isInternal && project.ownerId === req.user!.id;
+
+      const comment = await storage.createApplicationComment({
+        applicationId: req.params.id,
+        userId: req.user!.id,
+        content,
+        isInternal: finalIsInternal,
+      });
+
+      // Create notification for the other party (if not internal)
+      if (!finalIsInternal) {
+        const recipientId = project.ownerId === req.user!.id ? application.userId : project.ownerId;
+        await storage.createNotification({
+          userId: recipientId,
+          type: "application",
+          title: "New Application Comment",
+          content: `${req.user!.name} commented on an application for "${project.title}"`,
+          payload: { applicationId: application.id, projectId: project.id },
+        });
+      }
+
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error('Error creating application comment:', error);
+      res.status(500).json({ error: "Failed to create comment" });
     }
   });
 

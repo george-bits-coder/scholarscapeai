@@ -45,9 +45,13 @@ export const applications = pgTable("applications", {
   userId: varchar("user_id").notNull().references(() => users.id),
   coverLetter: text("cover_letter").notNull(),
   proposalUrl: text("proposal_url"),
-  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  status: text("status").notNull().default("submitted"), // submitted, under_review, approved, rejected
   matchScore: decimal("match_score", { precision: 3, scale: 2 }),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  deadline: timestamp("deadline"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const messages = pgTable("messages", {
@@ -82,6 +86,15 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const applicationComments = pgTable("application_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").notNull().references(() => applications.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  isInternal: boolean("is_internal").default(false), // internal notes for reviewers only
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -101,7 +114,14 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 export const insertApplicationSchema = createInsertSchema(applications).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
   matchScore: true,
+  reviewedAt: true,
+});
+
+export const insertApplicationCommentSchema = createInsertSchema(applicationComments).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertMessageSchema = createInsertSchema(messages).omit({

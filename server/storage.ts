@@ -1,5 +1,5 @@
 import { type User, type InsertUser, type Project, type InsertProject, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification } from "@shared/schema";
-import { users, projects, applications, messages, grants, notifications } from "@shared/schema";
+import { users, projects, applications, messages, grants, notifications, applicationComments } from "@shared/schema";
 import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { db } from "./database";
 import session from "express-session";
@@ -36,6 +36,16 @@ export interface IStorage {
   markNotificationAsRead(id: string): Promise<void>;
   
   getUsersByRole(role: string): Promise<User[]>;
+  
+  // Application management
+  getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]>;
+  getApplicationsForUser(userId: string): Promise<(Application & { user: User; project: Project })[]>;
+  getApplicationsForProjectOwner(ownerId: string): Promise<(Application & { user: User; project: Project })[]>;
+  updateApplicationStatus(applicationId: string, status: string, reviewNotes?: string): Promise<Application>;
+  
+  // Application comments
+  getApplicationComments(applicationId: string): Promise<any[]>;
+  createApplicationComment(comment: any): Promise<any>;
   
   sessionStore: any;
 }
@@ -228,6 +238,72 @@ export class DatabaseStorage implements IStorage {
 
   async getUsersByRole(role: string): Promise<User[]> {
     return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  // Application management methods
+  async getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]> {
+    return await db
+      .select()
+      .from(applications)
+      .leftJoin(users, eq(applications.userId, users.id))
+      .leftJoin(projects, eq(applications.projectId, projects.id))
+      .where(eq(applications.projectId, projectId))
+      .orderBy(desc(applications.createdAt)) as any;
+  }
+
+  async getApplicationsForUser(userId: string): Promise<(Application & { user: User; project: Project })[]> {
+    return await db
+      .select()
+      .from(applications)
+      .leftJoin(users, eq(applications.userId, users.id))
+      .leftJoin(projects, eq(applications.projectId, projects.id))
+      .where(eq(applications.userId, userId))
+      .orderBy(desc(applications.createdAt)) as any;
+  }
+
+  async getApplicationsForProjectOwner(ownerId: string): Promise<(Application & { user: User; project: Project })[]> {
+    return await db
+      .select()
+      .from(applications)
+      .leftJoin(users, eq(applications.userId, users.id))
+      .leftJoin(projects, eq(applications.projectId, projects.id))
+      .where(eq(projects.ownerId, ownerId))
+      .orderBy(desc(applications.createdAt)) as any;
+  }
+
+  async updateApplicationStatus(applicationId: string, status: string, reviewNotes?: string): Promise<Application> {
+    const updateData: any = { 
+      status, 
+      updatedAt: new Date(),
+      reviewedAt: new Date()
+    };
+    if (reviewNotes) {
+      updateData.reviewNotes = reviewNotes;
+    }
+
+    const result = await db
+      .update(applications)
+      .set(updateData)
+      .where(eq(applications.id, applicationId))
+      .returning();
+    
+    if (result.length === 0) throw new Error("Application not found");
+    return result[0];
+  }
+
+  // Application comments methods
+  async getApplicationComments(applicationId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(applicationComments)
+      .leftJoin(users, eq(applicationComments.userId, users.id))
+      .where(eq(applicationComments.applicationId, applicationId))
+      .orderBy(desc(applicationComments.createdAt)) as any;
+  }
+
+  async createApplicationComment(comment: any): Promise<any> {
+    const result = await db.insert(applicationComments).values([comment]).returning();
+    return result[0];
   }
 }
 

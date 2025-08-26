@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/header";
 import ProjectCard from "@/components/project-card";
 import ProjectListing from "@/components/project-listing";
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import type { Project, User, Grant } from "@shared/schema";
 
 export default function Dashboard() {
@@ -22,6 +23,17 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState("");
   const [showCreateProject, setShowCreateProject] = useState(false);
+
+  // Application status update mutation
+  const updateApplicationStatusMutation = useMutation({
+    mutationFn: async ({ applicationId, status, reviewNotes }: { applicationId: string; status: string; reviewNotes?: string }) => {
+      const response = await apiRequest("PUT", `/api/applications/${applicationId}/status`, { status, reviewNotes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+    }
+  });
 
   // Fetch user's projects
   const { data: userProjects = [] } = useQuery<Project[]>({
@@ -220,40 +232,108 @@ export default function Dashboard() {
                   </h2>
                   
                   <div className="space-y-4">
-                    {(user?.role === "professor" ? receivedApplications : sentApplications).map((application: any) => (
-                      <Card key={application.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                {application.project?.title}
-                              </h3>
-                              {user?.role === "professor" && (
-                                <p className="text-sm text-gray-600 mb-2">
-                                  Applicant: {application.applicant?.name} ({application.applicant?.username})
-                                </p>
-                              )}
-                              <p className="text-gray-600 mb-3">{application.coverLetter}</p>
-                              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                                <span>Applied: {new Date(application.createdAt).toLocaleDateString()}</span>
-                                {application.matchScore && (
-                                  <span>Match: {Math.round(Number(application.matchScore) * 100)}%</span>
+                    {(user?.role === "professor" ? receivedApplications : sentApplications).map((application: any) => {
+                      const actualApplication = application.applications || application;
+                      const applicantInfo = application.users || application.applicant || application.user;
+                      const projectInfo = application.projects || application.project;
+                      
+                      return (
+                        <Card key={actualApplication.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-6">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                  {projectInfo?.title || "Unknown Project"}
+                                </h3>
+                                {user?.role === "professor" && applicantInfo && (
+                                  <p className="text-sm text-gray-600 mb-2">
+                                    Applicant: {applicantInfo.name} ({applicantInfo.username})
+                                  </p>
+                                )}
+                                <p className="text-gray-600 mb-3">{actualApplication.coverLetter}</p>
+                                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                  <span>Applied: {new Date(actualApplication.createdAt).toLocaleDateString()}</span>
+                                  {actualApplication.matchScore && (
+                                    <span>Match: {Math.round(Number(actualApplication.matchScore) * 100)}%</span>
+                                  )}
+                                  {actualApplication.reviewedAt && (
+                                    <span>Reviewed: {new Date(actualApplication.reviewedAt).toLocaleDateString()}</span>
+                                  )}
+                                </div>
+                                {actualApplication.reviewNotes && (
+                                  <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                    <p className="text-sm text-gray-600">
+                                      <strong>Review Notes:</strong> {actualApplication.reviewNotes}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end space-y-2">
+                                <Badge 
+                                  variant={
+                                    actualApplication.status === "approved" ? "default" : 
+                                    actualApplication.status === "rejected" ? "destructive" :
+                                    actualApplication.status === "under_review" ? "secondary" :
+                                    "outline"
+                                  }
+                                  className="flex items-center space-x-1"
+                                >
+                                  {actualApplication.status === "submitted" && <Clock className="w-3 h-3" />}
+                                  {actualApplication.status === "under_review" && <Loader2 className="w-3 h-3 animate-spin" />}
+                                  {actualApplication.status === "approved" && <CheckCircle className="w-3 h-3" />}
+                                  {actualApplication.status === "rejected" && <XCircle className="w-3 h-3" />}
+                                  <span>{actualApplication.status.replace('_', ' ')}</span>
+                                </Badge>
+                                
+                                {/* Status update buttons for professors */}
+                                {user?.role === "professor" && actualApplication.status !== "approved" && actualApplication.status !== "rejected" && (
+                                  <div className="flex space-x-2 mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateApplicationStatusMutation.mutate({
+                                        applicationId: actualApplication.id,
+                                        status: "under_review"
+                                      })}
+                                      disabled={updateApplicationStatusMutation.isPending}
+                                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                                    >
+                                      Review
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateApplicationStatusMutation.mutate({
+                                        applicationId: actualApplication.id,
+                                        status: "approved",
+                                        reviewNotes: "Application approved"
+                                      })}
+                                      disabled={updateApplicationStatusMutation.isPending}
+                                      className="text-green-600 border-green-600 hover:bg-green-50"
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateApplicationStatusMutation.mutate({
+                                        applicationId: actualApplication.id,
+                                        status: "rejected",
+                                        reviewNotes: "Application rejected"
+                                      })}
+                                      disabled={updateApplicationStatusMutation.isPending}
+                                      className="text-red-600 border-red-600 hover:bg-red-50"
+                                    >
+                                      Reject
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
                             </div>
-                            <Badge 
-                              variant={
-                                application.status === "accepted" ? "default" : 
-                                application.status === "rejected" ? "destructive" : 
-                                "secondary"
-                              }
-                            >
-                              {application.status}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                     
                     {(user?.role === "professor" ? receivedApplications : sentApplications).length === 0 && (
                       <div className="text-center py-12">

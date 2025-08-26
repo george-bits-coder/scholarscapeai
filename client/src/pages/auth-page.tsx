@@ -33,18 +33,6 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { user, loginMutation, registerMutation } = useAuth();
 
-  // Redirect if already logged in
-  React.useEffect(() => {
-    if (user) {
-      setLocation("/");
-    }
-  }, [user, setLocation]);
-
-  // Don't render the form if user is already logged in
-  if (user) {
-    return null;
-  }
-
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -70,6 +58,18 @@ export default function AuthPage() {
       publications: [],
     },
   });
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // Don't render the form if user is already logged in
+  if (user) {
+    return null;
+  }
 
   const onLogin = (data: LoginData) => {
     loginMutation.mutate(data, {

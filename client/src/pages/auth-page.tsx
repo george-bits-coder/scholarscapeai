@@ -20,6 +20,7 @@ const loginSchema = z.object({
 
 const registerSchema = insertUserSchema.extend({
   confirmPassword: z.string(),
+  researchInterests: z.string().optional(), // For form input as string
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -84,8 +85,8 @@ export default function AuthPage() {
     // Convert research interests string to array
     const processedData = {
       ...userData,
-      researchInterests: (userData.researchInterests as string) ? 
-        (userData.researchInterests as string).split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
+      researchInterests: userData.researchInterests ? 
+        userData.researchInterests.split(',').map((interest: string) => interest.trim()).filter(Boolean) : 
         []
     };
     registerMutation.mutate(processedData, {
@@ -303,7 +304,6 @@ export default function AuthPage() {
                               placeholder="AI, Machine Learning, Computer Vision, NLP..." 
                               data-testid="input-research-interests" 
                               {...field}
-                              value={typeof field.value === 'string' ? field.value : (field.value as string[])?.join(', ') || ""}
                             />
                           </FormControl>
                           <FormDescription>

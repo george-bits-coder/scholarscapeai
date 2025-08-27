@@ -15,9 +15,6 @@ export default function ProjectDetailsPage() {
   // Extract ID directly from the URL since useParams is not working correctly
   const id = location.split('/project/')[1];
   
-  console.log('Current location:', location);
-  console.log('Extracted ID:', id);
-
   const { data: project, isLoading, error } = useQuery<Project>({
     queryKey: ["/api/projects", id],
     queryFn: async () => {
@@ -31,15 +28,6 @@ export default function ProjectDetailsPage() {
     },
     enabled: !!id,
   });
-
-  // Debug logging
-  console.log('Project ID from URL:', id);
-  console.log('Query enabled:', !!id);
-  console.log('Is loading:', isLoading);
-  console.log('Project data:', project);
-  if (error) {
-    console.error('Project query error:', error);
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {

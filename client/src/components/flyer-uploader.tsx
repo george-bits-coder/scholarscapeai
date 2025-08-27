@@ -13,7 +13,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Validate file type (Images and PDFs)
@@ -30,11 +30,14 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
       }
       
       setSelectedFile(file);
+      // Automatically start upload after file selection
+      await handleUpload(file);
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
+  const handleUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedFile;
+    if (!file) return;
 
     setIsUploading(true);
     try {
@@ -45,9 +48,9 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
       // Upload file directly to object storage
       const uploadResponse = await fetch(uploadURL, {
         method: "PUT",
-        body: selectedFile,
+        body: file,
         headers: {
-          'Content-Type': selectedFile.type,
+          'Content-Type': file.type,
         },
       });
 
@@ -117,15 +120,11 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
             </div>
           )}
           
-          {selectedFile && (
-            <Button
-              onClick={handleUpload}
-              disabled={isUploading}
-              size="sm"
-              data-testid="button-upload-flyer"
-            >
-              {isUploading ? 'Uploading...' : 'Upload'}
-            </Button>
+          {isUploading && (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-sm">Uploading...</span>
+            </div>
           )}
         </div>
         

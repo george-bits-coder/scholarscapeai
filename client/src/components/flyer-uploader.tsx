@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, FileImage, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,6 +12,7 @@ interface FlyerUploaderProps {
 export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const inputId = useId();
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,7 +65,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
       setSelectedFile(null);
       
       // Reset file input
-      const fileInput = document.getElementById('flyer-upload') as HTMLInputElement;
+      const fileInput = document.getElementById(inputId) as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
     } catch (error) {
@@ -77,7 +78,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
 
   const clearSelection = () => {
     setSelectedFile(null);
-    const fileInput = document.getElementById('flyer-upload') as HTMLInputElement;
+    const fileInput = document.getElementById(inputId) as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
 
@@ -90,7 +91,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
         
         <div className="flex items-center space-x-2">
           <input
-            id="flyer-upload"
+            id={inputId}
             type="file"
             accept="image/*,.pdf"
             onChange={handleFileSelect}
@@ -99,7 +100,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
           />
           
           <label
-            htmlFor="flyer-upload"
+            htmlFor={inputId}
             className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
           >
             <Upload className="w-4 h-4" />

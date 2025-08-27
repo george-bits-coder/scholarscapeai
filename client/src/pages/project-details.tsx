@@ -9,12 +9,14 @@ import { ArrowLeft, FileImage, ExternalLink } from "lucide-react";
 import type { Project } from "@shared/schema";
 
 export default function ProjectDetailsPage() {
-  const params = useParams();
-  const { id } = params;
+  const [location] = useLocation();
   const [, setLocation] = useLocation();
   
-  console.log('All URL params:', params);
-  console.log('Current location:', window.location.pathname);
+  // Extract ID directly from the URL since useParams is not working correctly
+  const id = location.split('/project/')[1];
+  
+  console.log('Current location:', location);
+  console.log('Extracted ID:', id);
 
   const { data: project, isLoading, error } = useQuery<Project>({
     queryKey: ["/api/projects", id],

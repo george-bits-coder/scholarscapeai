@@ -9,8 +9,12 @@ import { ArrowLeft, FileImage, ExternalLink } from "lucide-react";
 import type { Project } from "@shared/schema";
 
 export default function ProjectDetailsPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const { id } = params;
   const [, setLocation] = useLocation();
+  
+  console.log('All URL params:', params);
+  console.log('Current location:', window.location.pathname);
 
   const { data: project, isLoading, error } = useQuery<Project>({
     queryKey: ["/api/projects", id],
@@ -27,11 +31,12 @@ export default function ProjectDetailsPage() {
   });
 
   // Debug logging
+  console.log('Project ID from URL:', id);
+  console.log('Query enabled:', !!id);
+  console.log('Is loading:', isLoading);
+  console.log('Project data:', project);
   if (error) {
     console.error('Project query error:', error);
-  }
-  if (project) {
-    console.log('Project loaded:', project);
   }
 
   const getStatusColor = (status: string) => {

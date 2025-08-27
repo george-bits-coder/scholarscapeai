@@ -46,7 +46,20 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
     
     try {
       // Immediately save the flyer to the project
-      await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl: uploadedUrl });
+      const response = await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl: uploadedUrl });
+      
+      if (!response.ok) {
+        // If authentication failed, show a helpful message
+        if (response.status === 401) {
+          toast({
+            title: "Please log in",
+            description: "You need to be logged in to save flyers. Please refresh and log in again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error(`Failed to save flyer: ${response.status}`);
+      }
       
       // Refresh the project data
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -57,9 +70,10 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
         description: "Your project flyer has been saved.",
       });
     } catch (error) {
+      console.error('Error saving flyer:', error);
       toast({
         title: "Failed to save flyer",
-        description: "The flyer was uploaded but couldn't be saved to the project.",
+        description: "The flyer was uploaded but couldn't be saved. Try refreshing and logging in again.",
         variant: "destructive",
       });
     }

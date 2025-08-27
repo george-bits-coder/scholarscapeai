@@ -35,6 +35,7 @@ export const projects = pgTable("projects", {
   status: text("status").notNull().default("active"), // active, in_review, planning, completed
   remote: boolean("remote").default(true),
   location: text("location"),
+  flyerUrl: text("flyer_url"), // Project flyer/poster URL
   projectEmbedding: jsonb("project_embedding").$type<number[]>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

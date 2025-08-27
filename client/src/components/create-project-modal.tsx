@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { FlyerUploader } from "@/components/flyer-uploader";
 
 const projectSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -28,6 +29,7 @@ const projectSchema = z.object({
   location: z.string().optional(),
   remote: z.boolean().default(false),
   status: z.enum(["planning", "active", "in_review", "completed"]).default("planning"),
+  flyerUrl: z.string().optional(),
 });
 
 type ProjectData = z.infer<typeof projectSchema>;
@@ -40,6 +42,7 @@ interface CreateProjectModalProps {
 export default function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [flyerUrl, setFlyerUrl] = useState<string>("");
 
   const form = useForm<ProjectData>({
     resolver: zodResolver(projectSchema),
@@ -53,6 +56,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
       location: "",
       remote: false,
       status: "planning",
+      flyerUrl: "",
     },
   });
 
@@ -63,6 +67,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
         ...data,
         requiredSkills: data.requiredSkills.split(',').map(skill => skill.trim()).filter(Boolean),
         compensation: data.compensation ? parseInt(data.compensation) : null,
+        flyerUrl: flyerUrl || undefined,
       };
       
       const response = await apiRequest("POST", "/api/projects", processedData);
@@ -76,6 +81,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
       });
       onClose();
       form.reset();
+      setFlyerUrl("");
     },
     onError: (error: Error) => {
       toast({
@@ -314,6 +320,18 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
                 </FormItem>
               )}
             />
+
+            {/* Project Flyer Upload */}
+            <div className="border-t pt-4">
+              <FlyerUploader
+                onUpload={setFlyerUrl}
+                currentFlyer={flyerUrl}
+                className="w-full"
+              />
+              <FormDescription className="mt-2">
+                Upload a flyer, poster, or detailed description to make your project more attractive to potential collaborators
+              </FormDescription>
+            </div>
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-3 pt-4">

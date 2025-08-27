@@ -18,6 +18,7 @@ export interface IStorage {
   getProjects(filters?: { ownerId?: string; status?: string }): Promise<Project[]>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
   
   getApplication(id: string): Promise<Application | undefined>;
   getApplications(filters?: { projectId?: string; userId?: string }): Promise<Application[]>;
@@ -118,6 +119,11 @@ export class DatabaseStorage implements IStorage {
     const result = await db.update(projects).set(updates).where(eq(projects.id, id)).returning();
     if (result.length === 0) throw new Error("Project not found");
     return result[0];
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    const result = await db.delete(projects).where(eq(projects.id, id)).returning();
+    if (result.length === 0) throw new Error("Project not found");
   }
 
   async getApplication(id: string): Promise<Application | undefined> {

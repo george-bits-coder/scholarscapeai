@@ -90,6 +90,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/projects/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to delete this project" });
+      }
+
+      // Check if project has applications
+      const applications = await storage.getApplications({ projectId: req.params.id });
+      if (applications.length > 0) {
+        return res.status(400).json({ 
+          error: "Cannot delete project with existing applications",
+          hasApplications: true,
+          applicationCount: applications.length
+        });
+      }
+
+      await storage.deleteProject(req.params.id);
+      res.json({ success: true, message: "Project deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ error: "Failed to delete project" });
+    }
+  });
+
   // Applications routes
   app.get("/api/applications", async (req, res) => {
     if (!req.isAuthenticated()) {

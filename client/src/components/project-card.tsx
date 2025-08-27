@@ -5,7 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Edit, Trash2, Eye, FileImage } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import EditProjectModal from "./edit-project-modal";
 import type { Project } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,9 +20,37 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project }: ProjectCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isOwner = user?.id === project.ownerId;
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/projects/${project.id}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete project");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: "Project deleted successfully",
+        description: "Your research project has been permanently deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete project",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -110,8 +142,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                 <DropdownMenuItem 
                   onClick={(e) => {
                     e.stopPropagation();
-                    // TODO: Implement delete functionality
-                    alert('Delete functionality coming soon!');
+                    setShowDeleteDialog(true);
                   }}
                   className="text-red-600"
                   data-testid="menu-item-delete"
@@ -198,6 +229,31 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           onClose={() => setShowEditModal(false)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent data-testid="delete-project-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{project.title}"? This action cannot be undone and will permanently remove the project and all its data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProjectMutation.mutate()}
+              disabled={deleteProjectMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

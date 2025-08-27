@@ -101,6 +101,17 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
     updateProjectMutation.mutate(data);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted - starting update process');
+    form.handleSubmit((data) => {
+      console.log('Form data validated, calling mutation:', data);
+      onSubmit(data);
+    }, (errors) => {
+      console.error('Form validation errors:', errors);
+    })(e);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="edit-project-modal">
@@ -109,7 +120,7 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Title */}
             <FormField
               control={form.control}

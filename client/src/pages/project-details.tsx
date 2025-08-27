@@ -14,6 +14,13 @@ export default function ProjectDetailsPage() {
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ["/api/projects", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/projects/${id}`);
+      if (!response.ok) {
+        throw new Error('Project not found');
+      }
+      return response.json();
+    },
     enabled: !!id,
   });
 

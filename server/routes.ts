@@ -576,6 +576,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update project flyer endpoint
+  app.put("/api/projects/:id/flyer", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { flyerUrl } = req.body;
+      if (!flyerUrl) {
+        return res.status(400).json({ error: "Flyer URL is required" });
+      }
+
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to update this project" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(flyerUrl);
+      
+      await storage.updateProject(req.params.id, { flyerUrl: normalizedPath });
+      res.json({ success: true, flyerUrl: normalizedPath });
+    } catch (error) {
+      console.error("Error updating project flyer:", error);
+      res.status(500).json({ error: "Failed to update project flyer" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

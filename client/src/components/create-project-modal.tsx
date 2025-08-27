@@ -67,11 +67,17 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
         ...data,
         requiredSkills: data.requiredSkills.split(',').map(skill => skill.trim()).filter(Boolean),
         compensation: data.compensation ? parseInt(data.compensation) : null,
-        flyerUrl: flyerUrl || undefined,
       };
       
       const response = await apiRequest("POST", "/api/projects", processedData);
-      return response.json();
+      const project = await response.json();
+      
+      // If there's a flyer URL, update the project with it
+      if (flyerUrl) {
+        await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl });
+      }
+      
+      return project;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });

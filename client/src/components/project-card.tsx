@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, FileImage } from "lucide-react";
 import EditProjectModal from "./edit-project-modal";
 import type { Project } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ProjectCardProps {
   project: Project;
@@ -14,6 +16,9 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project }: ProjectCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const isOwner = user?.id === project.ownerId;
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -44,8 +49,18 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     }
   };
 
+  const handleCardClick = () => {
+    if (isOwner) {
+      setLocation(`/project/${project.id}`);
+    }
+  };
+
   return (
-    <Card className="bg-gray-50 hover:shadow-md transition-shadow" data-testid="project-card">
+    <Card 
+      className={`bg-gray-50 hover:shadow-md transition-shadow ${isOwner ? 'cursor-pointer' : ''}`}
+      onClick={handleCardClick}
+      data-testid="project-card"
+    >
       <CardContent className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -59,37 +74,54 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               {project.status.replace('_', ' ')}
             </Badge>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                data-testid="button-project-menu"
-              >
-                <MoreHorizontal className="w-5 h-5 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                onClick={() => setShowEditModal(true)}
-                data-testid="menu-item-edit"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Project
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => {
-                  // TODO: Implement delete functionality
-                  alert('Delete functionality coming soon!');
-                }}
-                className="text-red-600"
-                data-testid="menu-item-delete"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  data-testid="button-project-menu"
+                  onClick={(e) => e.stopPropagation()} // Prevent card click
+                >
+                  <MoreHorizontal className="w-5 h-5 text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocation(`/project/${project.id}`);
+                  }}
+                  data-testid="menu-item-view"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowEditModal(true);
+                  }}
+                  data-testid="menu-item-edit"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Project
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // TODO: Implement delete functionality
+                    alert('Delete functionality coming soon!');
+                  }}
+                  className="text-red-600"
+                  data-testid="menu-item-delete"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         <p className="text-gray-600 text-sm mb-4 line-clamp-3" data-testid="project-description">
@@ -128,6 +160,26 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             <span data-testid="project-timeline">{project.timeline}</span>
           )}
         </div>
+
+        {/* Project Flyer */}
+        {project.flyerUrl && (
+          <div className="flex items-center space-x-2 mb-4 p-2 bg-blue-50 rounded-md">
+            <FileImage className="w-4 h-4 text-blue-600" />
+            <span className="text-sm text-blue-800">Project flyer attached</span>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(project.flyerUrl!, '_blank');
+              }}
+              className="p-0 h-auto text-blue-600"
+              data-testid="button-view-flyer"
+            >
+              View
+            </Button>
+          </div>
+        )}
 
         {/* Progress */}
         <div className="space-y-2">

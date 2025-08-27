@@ -68,12 +68,8 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
       const updatedProject = await response.json();
       
       // If there's a flyer URL, update the project with it
-      console.log('Flyer URL to save:', flyerUrl);
-      console.log('Original flyer URL:', project.flyerUrl);
       if (flyerUrl && flyerUrl !== project.flyerUrl) {
-        console.log('Saving flyer URL to project...');
         await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl });
-        console.log('Flyer URL saved successfully');
       }
       
       return updatedProject;
@@ -101,15 +97,20 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
     updateProjectMutation.mutate(data);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted - starting update process');
-    form.handleSubmit((data) => {
-      console.log('Form data validated, calling mutation:', data);
-      onSubmit(data);
-    }, (errors) => {
-      console.error('Form validation errors:', errors);
-    })(e);
+    e.stopPropagation();
+    
+    // Check if form is valid
+    const isValid = await form.trigger();
+    if (!isValid) {
+      console.error('Form validation failed:', form.formState.errors);
+      return;
+    }
+    
+    // Get form data and submit
+    const formData = form.getValues();
+    onSubmit(formData);
   };
 
   return (

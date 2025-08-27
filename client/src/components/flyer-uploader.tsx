@@ -61,6 +61,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
 
       // The uploaded file URL
       const flyerUrl = uploadURL.split('?')[0]; // Remove query parameters
+      console.log('File uploaded successfully, URL:', flyerUrl);
       onUpload(flyerUrl);
       setSelectedFile(null);
       

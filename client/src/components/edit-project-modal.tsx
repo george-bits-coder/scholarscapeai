@@ -68,8 +68,12 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
       const updatedProject = await response.json();
       
       // If there's a flyer URL, update the project with it
+      console.log('Flyer URL to save:', flyerUrl);
+      console.log('Original flyer URL:', project.flyerUrl);
       if (flyerUrl && flyerUrl !== project.flyerUrl) {
+        console.log('Saving flyer URL to project...');
         await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl });
+        console.log('Flyer URL saved successfully');
       }
       
       return updatedProject;

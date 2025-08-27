@@ -40,6 +40,31 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
   const queryClient = useQueryClient();
   const [flyerUrl, setFlyerUrl] = useState(project.flyerUrl || "");
 
+  // Handle flyer upload and immediately save to project
+  const handleFlyerUpload = async (uploadedUrl: string) => {
+    setFlyerUrl(uploadedUrl);
+    
+    try {
+      // Immediately save the flyer to the project
+      await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl: uploadedUrl });
+      
+      // Refresh the project data
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] });
+      
+      toast({
+        title: "Flyer uploaded successfully",
+        description: "Your project flyer has been saved.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to save flyer",
+        description: "The flyer was uploaded but couldn't be saved to the project.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const form = useForm<ProjectData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -67,10 +92,7 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
       const response = await apiRequest("PUT", `/api/projects/${project.id}`, processedData);
       const updatedProject = await response.json();
       
-      // If there's a flyer URL, update the project with it
-      if (flyerUrl && flyerUrl !== project.flyerUrl) {
-        await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl });
-      }
+      // Flyer is now handled separately in handleFlyerUpload
       
       return updatedProject;
     },
@@ -334,7 +356,7 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
             {/* Project Flyer Upload */}
             <div className="border-t pt-4">
               <FlyerUploader
-                onUpload={setFlyerUrl}
+                onUpload={handleFlyerUpload}
                 currentFlyer={flyerUrl}
                 className="w-full"
               />

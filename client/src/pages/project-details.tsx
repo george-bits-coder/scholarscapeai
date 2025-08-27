@@ -12,10 +12,12 @@ export default function ProjectDetailsPage() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
 
-  const { data: project, isLoading } = useQuery<Project>({
+  const { data: project, isLoading, error } = useQuery<Project>({
     queryKey: ["/api/projects", id],
     queryFn: async () => {
-      const response = await fetch(`/api/projects/${id}`);
+      const response = await fetch(`/api/projects/${id}`, {
+        credentials: 'include', // Include cookies for authentication
+      });
       if (!response.ok) {
         throw new Error('Project not found');
       }
@@ -23,6 +25,14 @@ export default function ProjectDetailsPage() {
     },
     enabled: !!id,
   });
+
+  // Debug logging
+  if (error) {
+    console.error('Project query error:', error);
+  }
+  if (project) {
+    console.log('Project loaded:', project);
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {

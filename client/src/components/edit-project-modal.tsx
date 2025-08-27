@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { FlyerUploader } from "./flyer-uploader";
 import type { Project } from "@shared/schema";
+import { useState } from "react";
 
 const projectSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -36,6 +38,7 @@ interface EditProjectModalProps {
 export default function EditProjectModal({ project, isOpen, onClose }: EditProjectModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [flyerUrl, setFlyerUrl] = useState(project.flyerUrl || "");
 
   const form = useForm<ProjectData>({
     resolver: zodResolver(projectSchema),
@@ -62,7 +65,14 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
       };
       
       const response = await apiRequest("PUT", `/api/projects/${project.id}`, processedData);
-      return response.json();
+      const updatedProject = await response.json();
+      
+      // If there's a flyer URL, update the project with it
+      if (flyerUrl && flyerUrl !== project.flyerUrl) {
+        await apiRequest("PUT", `/api/projects/${project.id}/flyer`, { flyerUrl });
+      }
+      
+      return updatedProject;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -71,6 +81,8 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
         description: "Your research project has been updated.",
       });
       onClose();
+      form.reset();
+      setFlyerUrl(project.flyerUrl || "");
     },
     onError: (error: Error) => {
       toast({
@@ -302,6 +314,18 @@ export default function EditProjectModal({ project, isOpen, onClose }: EditProje
                 </FormItem>
               )}
             />
+
+            {/* Project Flyer Upload */}
+            <div className="border-t pt-4">
+              <FlyerUploader
+                onUpload={setFlyerUrl}
+                currentFlyer={flyerUrl}
+                className="w-full"
+              />
+              <FormDescription className="mt-2">
+                Upload a flyer, poster, or detailed description to make your project more attractive to potential collaborators
+              </FormDescription>
+            </div>
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button 

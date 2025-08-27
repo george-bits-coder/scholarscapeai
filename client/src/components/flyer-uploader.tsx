@@ -83,7 +83,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
   };
 
   return (
-    <div className={className}>
+    <div className={className} onClick={(e) => e.stopPropagation()}>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
           Project Flyer/Poster {currentFlyer && <span className="text-green-600">(Currently uploaded)</span>}
@@ -102,6 +102,7 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
           <label
             htmlFor={inputId}
             className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={(e) => e.stopPropagation()}
           >
             <Upload className="w-4 h-4" />
             <span className="text-sm">Choose File</span>
@@ -112,7 +113,10 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
               <FileImage className="w-4 h-4 text-blue-600" />
               <span className="text-sm text-blue-800">{selectedFile.name}</span>
               <button
-                onClick={clearSelection}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearSelection();
+                }}
                 className="text-blue-600 hover:text-blue-800"
                 data-testid="button-clear-flyer"
               >
@@ -136,7 +140,10 @@ export function FlyerUploader({ onUpload, currentFlyer, className }: FlyerUpload
             <Button
               variant="link"
               size="sm"
-              onClick={() => window.open(currentFlyer, '_blank')}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(currentFlyer, '_blank');
+              }}
               className="p-0 h-auto text-blue-600"
               data-testid="button-view-current-flyer"
             >

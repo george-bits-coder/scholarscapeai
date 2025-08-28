@@ -8,6 +8,8 @@ import ResearcherCard from "@/components/researcher-card";
 import MessageWidget from "@/components/message-widget";
 import { ProjectRecommendations } from "@/components/recommendations";
 import CreateProjectModal from "@/components/create-project-modal";
+import OpportunityCard from "@/components/opportunity-card";
+import CreateOpportunityModal from "@/components/create-opportunity-modal";
 import { ApplicantProfileModal } from "@/components/applicant-profile-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,9 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState("");
+  const [browseType, setBrowseType] = useState<"projects" | "opportunities">("projects");
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [showCreateOpportunity, setShowCreateOpportunity] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<User | null>(null);
 
   // Application status update mutation
@@ -46,9 +50,23 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Fetch user's opportunities
+  const { data: userOpportunities = [] } = useQuery<any[]>({
+    queryKey: ["/api/opportunities", "student", user?.id],
+    queryFn: () => fetch(`/api/opportunities?studentId=${user?.id}`, {
+      credentials: "include"
+    }).then(res => res.json()),
+    enabled: !!user,
+  });
+
   // Fetch all available projects
   const { data: availableProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  // Fetch all available opportunities
+  const { data: availableOpportunities = [] } = useQuery<any[]>({
+    queryKey: ["/api/opportunities"],
   });
 
   // Fetch researchers
@@ -92,6 +110,17 @@ export default function Dashboard() {
     
     const matchesField = !selectedField || selectedField === "all" || 
       project.requiredSkills?.some((skill: string) => skill.toLowerCase().includes(selectedField.toLowerCase()));
+    
+    return matchesSearch && matchesField;
+  });
+
+  const filteredOpportunities = availableOpportunities.filter((opportunity: any) => {
+    const matchesSearch = !searchQuery || 
+      opportunity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      opportunity.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesField = !selectedField || selectedField === "all" || 
+      opportunity.interestedFields?.some((field: string) => field.toLowerCase().includes(selectedField.toLowerCase()));
     
     return matchesSearch && matchesField;
   });
@@ -185,6 +214,13 @@ export default function Dashboard() {
                       Browse Projects
                     </TabsTrigger>
                     <TabsTrigger 
+                      value="opportunities" 
+                      className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-4 px-1"
+                      data-testid="tab-opportunities"
+                    >
+                      My Opportunities
+                    </TabsTrigger>
+                    <TabsTrigger 
                       value="grants" 
                       className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-4 px-1"
                       data-testid="tab-grants"
@@ -225,6 +261,43 @@ export default function Dashboard() {
                           data-testid="button-create-first-project"
                         >
                           Create Project
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="opportunities" className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900">My Opportunities</h2>
+                    <Button 
+                      className="bg-blue-600 text-white hover:bg-blue-700" 
+                      onClick={() => setShowCreateOpportunity(true)}
+                      data-testid="button-new-opportunity"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Post Opportunity
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {userOpportunities.map((opportunity) => (
+                      <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+                    ))}
+                    
+                    {userOpportunities.length === 0 && (
+                      <div className="col-span-2 text-center py-12">
+                        <div className="text-gray-400 mb-4">
+                          <Plus className="w-12 h-12 mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities posted yet</h3>
+                        <p className="text-gray-600 mb-4">Let professors know what research opportunities you're looking for</p>
+                        <Button 
+                          className="bg-blue-600 text-white hover:bg-blue-700" 
+                          onClick={() => setShowCreateOpportunity(true)}
+                          data-testid="button-create-first-opportunity"
+                        >
+                          Post Opportunity
                         </Button>
                       </div>
                     )}
@@ -369,18 +442,42 @@ export default function Dashboard() {
                   )}
 
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">
-                      {user?.role === "student" ? "All Projects" : "Available Research Projects"}
-                    </h2>
+                    <div className="flex items-center space-x-4">
+                      <h2 className="text-xl font-semibold text-gray-900">Browse</h2>
+                      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setBrowseType("projects")}
+                          className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                            browseType === "projects" 
+                              ? "bg-white text-gray-900 shadow-sm" 
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
+                          data-testid="button-browse-projects"
+                        >
+                          Projects
+                        </button>
+                        <button
+                          onClick={() => setBrowseType("opportunities")}
+                          className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                            browseType === "opportunities" 
+                              ? "bg-white text-gray-900 shadow-sm" 
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
+                          data-testid="button-browse-opportunities"
+                        >
+                          Student Opportunities
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex items-center space-x-3">
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                         <Input
-                          placeholder="Search projects..."
+                          placeholder={`Search ${browseType}...`}
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-10"
-                          data-testid="input-search-projects"
+                          data-testid="input-search"
                         />
                       </div>
                       <Select value={selectedField} onValueChange={setSelectedField}>
@@ -400,14 +497,32 @@ export default function Dashboard() {
                   </div>
 
                   <div className="space-y-4">
-                    {filteredProjects.map((project: any) => (
-                      <ProjectListing key={project.id} project={project} />
-                    ))}
-                    
-                    {filteredProjects.length === 0 && (
-                      <div className="text-center py-12">
-                        <p className="text-gray-500">No projects found matching your criteria</p>
-                      </div>
+                    {browseType === "projects" ? (
+                      <>
+                        {filteredProjects.map((project: any) => (
+                          <ProjectListing key={project.id} project={project} />
+                        ))}
+                        
+                        {filteredProjects.length === 0 && (
+                          <div className="text-center py-12">
+                            <p className="text-gray-500">No projects found matching your criteria</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {filteredOpportunities.map((opportunity: any) => (
+                          <div key={opportunity.id} className="mb-4">
+                            <OpportunityCard opportunity={opportunity} />
+                          </div>
+                        ))}
+                        
+                        {filteredOpportunities.length === 0 && (
+                          <div className="text-center py-12">
+                            <p className="text-gray-500">No student opportunities found matching your criteria</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </TabsContent>
@@ -484,6 +599,12 @@ export default function Dashboard() {
       <CreateProjectModal 
         isOpen={showCreateProject} 
         onClose={() => setShowCreateProject(false)} 
+      />
+
+      {/* Create Opportunity Modal */}
+      <CreateOpportunityModal
+        isOpen={showCreateOpportunity}
+        onClose={() => setShowCreateOpportunity(false)}
       />
 
       {/* Applicant Profile Modal */}

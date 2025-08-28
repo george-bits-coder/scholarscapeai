@@ -1,5 +1,5 @@
-import { type User, type InsertUser, type Project, type InsertProject, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification } from "@shared/schema";
-import { users, projects, applications, messages, grants, notifications, applicationComments } from "@shared/schema";
+import { type User, type InsertUser, type Project, type InsertProject, type Opportunity, type InsertOpportunity, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification } from "@shared/schema";
+import { users, projects, opportunities, applications, messages, grants, notifications, applicationComments } from "@shared/schema";
 import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { db } from "./database";
 import session from "express-session";
@@ -19,6 +19,12 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project>;
   deleteProject(id: string): Promise<void>;
+  
+  getOpportunity(id: string): Promise<Opportunity | undefined>;
+  getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]>;
+  createOpportunity(opportunity: InsertOpportunity): Promise<Opportunity>;
+  updateOpportunity(id: string, updates: Partial<Opportunity>): Promise<Opportunity>;
+  deleteOpportunity(id: string): Promise<void>;
   
   getApplication(id: string): Promise<Application | undefined>;
   getApplications(filters?: { projectId?: string; userId?: string }): Promise<Application[]>;
@@ -124,6 +130,45 @@ export class DatabaseStorage implements IStorage {
   async deleteProject(id: string): Promise<void> {
     const result = await db.delete(projects).where(eq(projects.id, id)).returning();
     if (result.length === 0) throw new Error("Project not found");
+  }
+
+  async getOpportunity(id: string): Promise<Opportunity | undefined> {
+    const result = await db.select().from(opportunities).where(eq(opportunities.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]> {
+    let query = db.select().from(opportunities);
+    
+    const conditions = [];
+    if (filters?.studentId) {
+      conditions.push(eq(opportunities.studentId, filters.studentId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(opportunities.status, filters.status));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(opportunities.createdAt));
+  }
+
+  async createOpportunity(insertOpportunity: InsertOpportunity): Promise<Opportunity> {
+    const result = await db.insert(opportunities).values([insertOpportunity as any]).returning();
+    return result[0];
+  }
+
+  async updateOpportunity(id: string, updates: Partial<Opportunity>): Promise<Opportunity> {
+    const result = await db.update(opportunities).set(updates).where(eq(opportunities.id, id)).returning();
+    if (result.length === 0) throw new Error("Opportunity not found");
+    return result[0];
+  }
+
+  async deleteOpportunity(id: string): Promise<void> {
+    const result = await db.delete(opportunities).where(eq(opportunities.id, id)).returning();
+    if (result.length === 0) throw new Error("Opportunity not found");
   }
 
   async getApplication(id: string): Promise<Application | undefined> {

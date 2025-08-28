@@ -41,6 +41,25 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const opportunities = pgTable("opportunities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  skills: jsonb("skills").$type<string[]>().default([]), // Skills the student has
+  interests: jsonb("interests").$type<string[]>().default([]), // Research areas of interest
+  availableHours: integer("available_hours"), // Hours per week available
+  preferredCompensation: integer("preferred_compensation"),
+  availability: text("availability"), // When they're available (e.g., "Summer 2024", "Fall semester")
+  remote: boolean("remote").default(true),
+  preferredLocation: text("preferred_location"),
+  academicLevel: text("academic_level"), // undergraduate, graduate, postdoc
+  status: text("status").notNull().default("active"), // active, paused, filled
+  opportunityEmbedding: jsonb("opportunity_embedding").$type<number[]>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const applications = pgTable("applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
@@ -113,6 +132,13 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   projectEmbedding: true,
 });
 
+export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  opportunityEmbedding: true,
+});
+
 export const insertApplicationSchema = createInsertSchema(applications).omit({
   id: true,
   createdAt: true,
@@ -148,6 +174,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
+export type InsertOpportunity = z.infer<typeof insertOpportunitySchema>;
+export type Opportunity = typeof opportunities.$inferSelect;
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type Application = typeof applications.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

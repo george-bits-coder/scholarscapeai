@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { matchingService } from "./matching-service";
-import { insertProjectSchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
+import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -120,6 +120,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting project:", error);
       res.status(500).json({ error: "Failed to delete project" });
+    }
+  });
+
+  // Opportunities routes
+  app.get("/api/opportunities", async (req, res) => {
+    try {
+      const { studentId, status } = req.query;
+      const opportunities = await storage.getOpportunities({
+        studentId: studentId as string,
+        status: status as string,
+      });
+      
+      // Add student information to each opportunity
+      const opportunitiesWithStudents = await Promise.all(
+        opportunities.map(async (opportunity) => {
+          const student = await storage.getUser(opportunity.studentId);
+          return { ...opportunity, student };
+        })
+      );
+      
+      res.json(opportunitiesWithStudents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch opportunities" });
+    }
+  });
+
+  app.get("/api/opportunities/:id", async (req, res) => {
+    try {
+      const opportunity = await storage.getOpportunity(req.params.id);
+      if (!opportunity) {
+        return res.status(404).json({ error: "Opportunity not found" });
+      }
+      
+      const student = await storage.getUser(opportunity.studentId);
+      res.json({ ...opportunity, student });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch opportunity" });
+    }
+  });
+
+  app.post("/api/opportunities", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const opportunityData = {
+        ...req.body,
+        studentId: req.user!.id,
+      };
+      
+      const opportunity = await storage.createOpportunity(opportunityData);
+      res.status(201).json(opportunity);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid opportunity data" });
+    }
+  });
+
+  app.put("/api/opportunities/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const opportunity = await storage.getOpportunity(req.params.id);
+      if (!opportunity) {
+        return res.status(404).json({ error: "Opportunity not found" });
+      }
+      
+      if (opportunity.studentId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to edit this opportunity" });
+      }
+
+      const updatedOpportunity = await storage.updateOpportunity(req.params.id, req.body);
+      res.json(updatedOpportunity);
+    } catch (error) {
+      console.error("Error updating opportunity:", error);
+      res.status(500).json({ error: "Failed to update opportunity" });
+    }
+  });
+
+  app.delete("/api/opportunities/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const opportunity = await storage.getOpportunity(req.params.id);
+      if (!opportunity) {
+        return res.status(404).json({ error: "Opportunity not found" });
+      }
+      
+      if (opportunity.studentId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to delete this opportunity" });
+      }
+
+      await storage.deleteOpportunity(req.params.id);
+      res.json({ success: true, message: "Opportunity deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting opportunity:", error);
+      res.status(500).json({ error: "Failed to delete opportunity" });
     }
   });
 

@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { emailService } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -266,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const application = await storage.createApplication(applicationData);
       
-      // Create notification for project owner
+      // Create notification and send email for project owner
       const project = await storage.getProject(application.projectId);
       if (project) {
         await storage.createNotification({
@@ -276,6 +277,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: `${req.user!.name} applied to your project: ${project.title}`,
           payload: { applicationId: application.id, projectId: project.id },
         });
+
+        // Send email notification to project owner
+        try {
+          const projectOwner = await storage.getUser(project.ownerId);
+          if (projectOwner?.email) {
+            const loginUrl = process.env.REPLIT_DOMAINS 
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+              : 'http://localhost:5000';
+            
+            const emailTemplate = emailService.createNewApplicationEmail(
+              projectOwner.email,
+              projectOwner.name,
+              project.title,
+              req.user!.name,
+              loginUrl
+            );
+            
+            await emailService.sendEmail(emailTemplate);
+            console.log(`New application email sent to ${projectOwner.email}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to send new application email:', emailError);
+          // Don't fail the whole request if email fails
+        }
       }
       
       res.status(201).json(application);
@@ -322,7 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.addChatMember(chat.id, application.userId, "member");
       }
       
-      // Create notification for applicant
+      // Create notification and send email for applicant
       await storage.createNotification({
         userId: application.userId,
         type: "application",
@@ -330,6 +355,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: `Your application for "${project.title}" has been ${status.replace('_', ' ')}`,
         payload: { applicationId: application.id, projectId: project.id },
       });
+
+      // Send email notification to applicant
+      try {
+        const applicant = await storage.getUser(application.userId);
+        if (applicant?.email) {
+          const loginUrl = process.env.REPLIT_DOMAINS 
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+            : 'http://localhost:5000';
+          
+          const emailTemplate = emailService.createApplicationStatusEmail(
+            applicant.email,
+            applicant.name,
+            project.title,
+            status,
+            reviewNotes,
+            loginUrl
+          );
+          
+          await emailService.sendEmail(emailTemplate);
+          console.log(`Email sent to ${applicant.email} for application status: ${status}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to send application status email:', emailError);
+        // Don't fail the whole request if email fails
+      }
       
       res.json(updatedApplication);
     } catch (error) {
@@ -919,17 +969,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
 
-      // Create notifications for shared users
+      // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(userId =>
-          storage.createNotification({
+        userIds.map(async userId => {
+          // Create notification
+          await storage.createNotification({
             userId,
             type: "project_share",
             title: "Project Shared with You",
             content: `${req.user!.name} shared a project: ${project.title}`,
             payload: { projectId, shareId: shares.find(s => s.sharedWithId === userId)?.id }
-          })
-        )
+          });
+
+          // Send email notification
+          try {
+            const recipient = await storage.getUser(userId);
+            if (recipient?.email) {
+              const loginUrl = process.env.REPLIT_DOMAINS || 'http://localhost:5000';
+              const emailTemplate = emailService.createProjectShareEmail(
+                recipient.email,
+                recipient.name,
+                project.title,
+                req.user!.name,
+                message,
+                loginUrl
+              );
+              await emailService.sendEmail(emailTemplate);
+            }
+          } catch (emailError) {
+            console.error('Failed to send email notification:', emailError);
+            // Don't fail the request if email fails
+          }
+        })
       );
 
       res.json({ success: true, shares });

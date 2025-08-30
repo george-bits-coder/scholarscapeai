@@ -148,7 +148,7 @@ export default function MessagesPage() {
                               {message.sender.name}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(message.createdAt).toLocaleDateString()}
+                              {message.createdAt ? new Date(message.createdAt).toLocaleDateString() : ''}
                             </span>
                           </div>
                           <p className="text-sm">{message.content}</p>

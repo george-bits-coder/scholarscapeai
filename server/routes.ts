@@ -311,6 +311,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
       
+      // If application is approved, create or get project chat and add the applicant
+      if (status === 'approved') {
+        let chat = await storage.getProjectChat(project.id);
+        if (!chat) {
+          chat = await storage.createProjectChat(project.id, project.ownerId);
+        }
+        
+        // Add the approved applicant to the chat
+        await storage.addChatMember(chat.id, application.userId, "member");
+      }
+      
       // Create notification for applicant
       await storage.createNotification({
         userId: application.userId,
@@ -739,6 +750,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating project flyer:", error);
       res.status(500).json({ error: "Failed to update project flyer" });
+    }
+  });
+
+  // Project chat routes
+  app.get("/api/projects/:id/chat", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const projectId = req.params.id;
+      const chat = await storage.getProjectChat(projectId);
+      
+      if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+      }
+
+      // Check if user is a member of this chat
+      const members = await storage.getChatMembers(chat.id);
+      const isMember = members.some(member => member.userId === req.user!.id);
+      
+      if (!isMember) {
+        return res.status(403).json({ error: "Not authorized to access this chat" });
+      }
+
+      res.json(chat);
+    } catch (error) {
+      console.error('Error getting project chat:', error);
+      res.status(500).json({ error: "Failed to get chat" });
+    }
+  });
+
+  app.get("/api/chats/:id/messages", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const chatId = req.params.id;
+      
+      // Check if user is a member of this chat
+      const members = await storage.getChatMembers(chatId);
+      const isMember = members.some(member => member.userId === req.user!.id);
+      
+      if (!isMember) {
+        return res.status(403).json({ error: "Not authorized to access this chat" });
+      }
+
+      const messages = await storage.getChatMessages(chatId);
+      res.json(messages);
+    } catch (error) {
+      console.error('Error getting chat messages:', error);
+      res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
+
+  app.post("/api/chats/:id/messages", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const chatId = req.params.id;
+      const { content } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Message content is required" });
+      }
+      
+      // Check if user is a member of this chat
+      const members = await storage.getChatMembers(chatId);
+      const isMember = members.some(member => member.userId === req.user!.id);
+      
+      if (!isMember) {
+        return res.status(403).json({ error: "Not authorized to send messages to this chat" });
+      }
+
+      const message = await storage.createChatMessage({
+        chatId,
+        senderId: req.user!.id,
+        content: content.trim(),
+        messageType: "text"
+      });
+
+      res.status(201).json(message);
+    } catch (error) {
+      console.error('Error creating chat message:', error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  app.get("/api/chats/:id/members", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const chatId = req.params.id;
+      
+      // Check if user is a member of this chat
+      const members = await storage.getChatMembers(chatId);
+      const isMember = members.some(member => member.userId === req.user!.id);
+      
+      if (!isMember) {
+        return res.status(403).json({ error: "Not authorized to access this chat" });
+      }
+
+      res.json(members);
+    } catch (error) {
+      console.error('Error getting chat members:', error);
+      res.status(500).json({ error: "Failed to get members" });
     }
   });
 

@@ -1,5 +1,5 @@
-import { type User, type InsertUser, type Project, type InsertProject, type Opportunity, type InsertOpportunity, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification } from "@shared/schema";
-import { users, projects, opportunities, applications, messages, grants, notifications, applicationComments } from "@shared/schema";
+import { type User, type InsertUser, type Project, type InsertProject, type Opportunity, type InsertOpportunity, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification, type ProjectChat, type InsertProjectChat, type ProjectChatMember, type InsertProjectChatMember, type ProjectChatMessage, type InsertProjectChatMessage } from "@shared/schema";
+import { users, projects, opportunities, applications, messages, grants, notifications, applicationComments, projectChats, projectChatMembers, projectChatMessages } from "@shared/schema";
 import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { db } from "./database";
 import session from "express-session";
@@ -53,6 +53,14 @@ export interface IStorage {
   // Application comments
   getApplicationComments(applicationId: string): Promise<any[]>;
   createApplicationComment(comment: any): Promise<any>;
+
+  // Project chat functionality
+  createProjectChat(projectId: string, ownerId: string): Promise<ProjectChat>;
+  getProjectChat(projectId: string): Promise<ProjectChat | undefined>;
+  addChatMember(chatId: string, userId: string, role?: string): Promise<ProjectChatMember>;
+  getChatMembers(chatId: string): Promise<(ProjectChatMember & { user: User })[]>;
+  getChatMessages(chatId: string, limit?: number): Promise<(ProjectChatMessage & { sender: User })[]>;
+  createChatMessage(message: InsertProjectChatMessage): Promise<ProjectChatMessage>;
   
   sessionStore: any;
 }
@@ -405,6 +413,69 @@ export class DatabaseStorage implements IStorage {
 
   async createApplicationComment(comment: any): Promise<any> {
     const result = await db.insert(applicationComments).values([comment]).returning();
+    return result[0];
+  }
+
+  // Project chat methods
+  async createProjectChat(projectId: string, ownerId: string): Promise<ProjectChat> {
+    const result = await db.insert(projectChats).values([{
+      projectId,
+      name: "General",
+      description: "Project collaboration channel"
+    }]).returning();
+    
+    const chat = result[0];
+    
+    // Add the project owner as a member with owner role
+    await this.addChatMember(chat.id, ownerId, "owner");
+    
+    return chat;
+  }
+
+  async getProjectChat(projectId: string): Promise<ProjectChat | undefined> {
+    const result = await db
+      .select()
+      .from(projectChats)
+      .where(eq(projectChats.projectId, projectId));
+    
+    return result[0];
+  }
+
+  async addChatMember(chatId: string, userId: string, role: string = "member"): Promise<ProjectChatMember> {
+    const result = await db.insert(projectChatMembers).values([{
+      chatId,
+      userId,
+      role
+    }]).returning();
+    
+    return result[0];
+  }
+
+  async getChatMembers(chatId: string): Promise<(ProjectChatMember & { user: User })[]> {
+    const result = await db
+      .select()
+      .from(projectChatMembers)
+      .leftJoin(users, eq(projectChatMembers.userId, users.id))
+      .where(eq(projectChatMembers.chatId, chatId))
+      .orderBy(projectChatMembers.joinedAt);
+    
+    return result as any;
+  }
+
+  async getChatMessages(chatId: string, limit: number = 100): Promise<(ProjectChatMessage & { sender: User })[]> {
+    const result = await db
+      .select()
+      .from(projectChatMessages)
+      .leftJoin(users, eq(projectChatMessages.senderId, users.id))
+      .where(eq(projectChatMessages.chatId, chatId))
+      .orderBy(desc(projectChatMessages.createdAt))
+      .limit(limit);
+    
+    return result.reverse() as any; // Reverse to show oldest first
+  }
+
+  async createChatMessage(message: InsertProjectChatMessage): Promise<ProjectChatMessage> {
+    const result = await db.insert(projectChatMessages).values([message]).returning();
     return result[0];
   }
 }

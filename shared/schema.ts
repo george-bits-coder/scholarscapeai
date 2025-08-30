@@ -116,6 +116,32 @@ export const applicationComments = pgTable("application_comments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const projectChats = pgTable("project_chats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  name: text("name").notNull().default("General"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const projectChatMembers = pgTable("project_chat_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId: varchar("chat_id").notNull().references(() => projectChats.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default("member"), // owner, member
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const projectChatMessages = pgTable("project_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId: varchar("chat_id").notNull().references(() => projectChats.id),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  messageType: text("message_type").notNull().default("text"), // text, file, system
+  metadata: jsonb("metadata"), // for file attachments, system messages, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -169,6 +195,21 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   readAt: true,
 });
 
+export const insertProjectChatSchema = createInsertSchema(projectChats).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProjectChatMemberSchema = createInsertSchema(projectChatMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertProjectChatMessageSchema = createInsertSchema(projectChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -184,3 +225,9 @@ export type InsertGrant = z.infer<typeof insertGrantSchema>;
 export type Grant = typeof grants.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertProjectChat = z.infer<typeof insertProjectChatSchema>;
+export type ProjectChat = typeof projectChats.$inferSelect;
+export type InsertProjectChatMember = z.infer<typeof insertProjectChatMemberSchema>;
+export type ProjectChatMember = typeof projectChatMembers.$inferSelect;
+export type InsertProjectChatMessage = z.infer<typeof insertProjectChatMessageSchema>;
+export type ProjectChatMessage = typeof projectChatMessages.$inferSelect;

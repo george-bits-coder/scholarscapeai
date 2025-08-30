@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileImage, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileImage, ExternalLink, MessageSquare } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ProjectDetailsPage() {
   const [location] = useLocation();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   
   // Extract ID directly from the URL since useParams is not working correctly
   const id = location.split('/project/')[1];
@@ -27,6 +29,18 @@ export default function ProjectDetailsPage() {
       return response.json();
     },
     enabled: !!id,
+  });
+
+  // Check if user has access to project chat (project owner or approved applicant)
+  const { data: hasChat } = useQuery({
+    queryKey: [`/api/projects/${id}/chat`],
+    queryFn: async () => {
+      const response = await fetch(`/api/projects/${id}/chat`, {
+        credentials: 'include',
+      });
+      return response.ok;
+    },
+    enabled: !!id && !!user,
   });
 
   const getStatusColor = (status: string) => {
@@ -241,6 +255,20 @@ export default function ProjectDetailsPage() {
                   {project.remote ? "Available" : "Not Available"}
                 </p>
               </div>
+
+              {/* Team Chat Button */}
+              {hasChat && (
+                <div className="pt-2 border-t">
+                  <Button 
+                    onClick={() => setLocation(`/project/${id}/chat`)}
+                    className="w-full"
+                    data-testid="button-team-chat"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Team Chat
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

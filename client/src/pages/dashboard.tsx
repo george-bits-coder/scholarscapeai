@@ -51,12 +51,19 @@ export default function Dashboard() {
   });
 
   // Fetch user's opportunities
-  const { data: userOpportunities = [] } = useQuery<any[]>({
+  const { data: userOpportunities = [], isLoading: isLoadingOpportunities, error: opportunitiesError } = useQuery<any[]>({
     queryKey: ["/api/opportunities", "student", user?.id],
-    queryFn: () => fetch(`/api/opportunities?studentId=${user?.id}`, {
-      credentials: "include"
-    }).then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/opportunities?studentId=${user?.id}`, {
+        credentials: "include"
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch opportunities');
+      }
+      return response.json();
+    },
     enabled: !!user,
+    retry: 1,
   });
 
   // Fetch all available projects
@@ -67,6 +74,16 @@ export default function Dashboard() {
   // Fetch all available opportunities
   const { data: availableOpportunities = [] } = useQuery<any[]>({
     queryKey: ["/api/opportunities"],
+    queryFn: async () => {
+      const response = await fetch("/api/opportunities", {
+        credentials: "include"
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch opportunities');
+      }
+      return response.json();
+    },
+    retry: 1,
   });
 
   // Fetch researchers

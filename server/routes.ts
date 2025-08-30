@@ -142,6 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(opportunitiesWithStudents);
     } catch (error) {
+      console.error("Error fetching opportunities:", error);
       res.status(500).json({ error: "Failed to fetch opportunities" });
     }
   });

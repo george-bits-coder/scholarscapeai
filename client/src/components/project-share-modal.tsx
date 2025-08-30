@@ -91,7 +91,7 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
@@ -99,7 +99,8 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <ScrollArea className="flex-1 pr-6">
+          <div className="space-y-6">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -226,19 +227,21 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => shareProjectMutation.mutate()}
-              disabled={selectedUsers.length === 0 || shareProjectMutation.isPending}
-              data-testid="button-share-project"
-            >
-              {shareProjectMutation.isPending ? "Sharing..." : `Share with ${selectedUsers.length} users`}
-            </Button>
           </div>
+        </ScrollArea>
+
+        {/* Actions - Fixed at bottom */}
+        <div className="border-t pt-4 flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => shareProjectMutation.mutate()}
+            disabled={selectedUsers.length === 0 || shareProjectMutation.isPending}
+            data-testid="button-share-project"
+          >
+            {shareProjectMutation.isPending ? "Sharing..." : `Share with ${selectedUsers.length} users`}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

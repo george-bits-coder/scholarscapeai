@@ -12,6 +12,7 @@ import ProjectDetail from "@/pages/project-detail";
 import ProjectDetailsPage from "@/pages/project-details";
 import ResearcherProfile from "@/pages/researcher-profile";
 import ProjectChatPage from "@/pages/project-chat-page";
+import MessagesPage from "@/pages/messages-page";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <ProtectedRoute path="/project/:id" component={ProjectDetailsPage} />
       <ProtectedRoute path="/project/:id/chat" component={ProjectChatPage} />
       <ProtectedRoute path="/researchers/:id" component={ResearcherProfile} />
+      <ProtectedRoute path="/messages" component={MessagesPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

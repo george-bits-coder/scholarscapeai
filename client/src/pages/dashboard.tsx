@@ -594,9 +594,9 @@ export default function Dashboard() {
               <CardContent className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">Featured Researchers</h2>
-                  <a href="/researchers" className="text-primary hover:text-blue-700 text-sm font-medium">
-                    View All →
-                  </a>
+                  <span className="text-sm text-gray-500">
+                    Showing {researchers.length} researchers
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

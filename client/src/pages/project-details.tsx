@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileImage, ExternalLink, MessageSquare } from "lucide-react";
+import { ArrowLeft, FileImage, ExternalLink, MessageSquare, Share2 } from "lucide-react";
+import { ProjectShareModal } from "@/components/project-share-modal";
 import type { Project } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -13,6 +14,7 @@ export default function ProjectDetailsPage() {
   const [location] = useLocation();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const [showShareModal, setShowShareModal] = useState(false);
   
   // Extract ID directly from the URL since useParams is not working correctly
   const id = location.split('/project/')[1];
@@ -256,17 +258,33 @@ export default function ProjectDetailsPage() {
                 </p>
               </div>
 
-              {/* Team Chat Button */}
-              {hasChat && (
-                <div className="pt-2 border-t">
-                  <Button 
-                    onClick={() => setLocation(`/project/${id}/chat`)}
-                    className="w-full"
-                    data-testid="button-team-chat"
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Team Chat
-                  </Button>
+              {/* Action Buttons */}
+              {(hasChat || (project.ownerId === user?.id)) && (
+                <div className="pt-2 border-t space-y-2">
+                  {/* Team Chat Button */}
+                  {hasChat && (
+                    <Button 
+                      onClick={() => setLocation(`/project/${id}/chat`)}
+                      className="w-full"
+                      data-testid="button-team-chat"
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Team Chat
+                    </Button>
+                  )}
+                  
+                  {/* Share Project Button - Only for project owners */}
+                  {project.ownerId === user?.id && (
+                    <Button 
+                      onClick={() => setShowShareModal(true)}
+                      className="w-full"
+                      variant="outline"
+                      data-testid="button-share-project"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share Project
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -289,6 +307,16 @@ export default function ProjectDetailsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Project Share Modal */}
+      {project && (
+        <ProjectShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          projectId={project.id}
+          projectTitle={project.title}
+        />
+      )}
     </div>
   );
 }

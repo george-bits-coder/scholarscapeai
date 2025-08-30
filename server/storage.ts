@@ -1,5 +1,5 @@
-import { type User, type InsertUser, type Project, type InsertProject, type Opportunity, type InsertOpportunity, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification, type ProjectChat, type InsertProjectChat, type ProjectChatMember, type InsertProjectChatMember, type ProjectChatMessage, type InsertProjectChatMessage } from "@shared/schema";
-import { users, projects, opportunities, applications, messages, grants, notifications, applicationComments, projectChats, projectChatMembers, projectChatMessages } from "@shared/schema";
+import { type User, type InsertUser, type Project, type InsertProject, type Opportunity, type InsertOpportunity, type Application, type InsertApplication, type Message, type InsertMessage, type Grant, type InsertGrant, type Notification, type InsertNotification, type ProjectChat, type InsertProjectChat, type ProjectChatMember, type InsertProjectChatMember, type ProjectChatMessage, type InsertProjectChatMessage, type ProjectShare, type InsertProjectShare, type UserInterests, type InsertUserInterests } from "@shared/schema";
+import { users, projects, opportunities, applications, messages, grants, notifications, applicationComments, projectChats, projectChatMembers, projectChatMessages, projectShares, userInterests } from "@shared/schema";
 import { eq, and, desc, inArray, or } from "drizzle-orm";
 import { db } from "./database";
 import session from "express-session";
@@ -61,6 +61,15 @@ export interface IStorage {
   getChatMembers(chatId: string): Promise<(ProjectChatMember & { user: User })[]>;
   getChatMessages(chatId: string, limit?: number): Promise<(ProjectChatMessage & { sender: User })[]>;
   createChatMessage(message: InsertProjectChatMessage): Promise<ProjectChatMessage>;
+
+  // Project sharing and matching
+  shareProject(share: InsertProjectShare): Promise<ProjectShare>;
+  getProjectShares(userId: string): Promise<(ProjectShare & { project: Project; sharedBy: User })[]>;
+  updateShareStatus(shareId: string, status: string): Promise<ProjectShare>;
+  getUserInterests(userId: string): Promise<UserInterests | undefined>;
+  updateUserInterests(userId: string, interests: InsertUserInterests): Promise<UserInterests>;
+  getMatchingUsers(projectId: string, limit?: number): Promise<(User & { matchScore: number })[]>;
+  getRecommendedProjects(userId: string, limit?: number): Promise<(Project & { matchScore: number })[]>;
   
   sessionStore: any;
 }
@@ -477,6 +486,174 @@ export class DatabaseStorage implements IStorage {
   async createChatMessage(message: InsertProjectChatMessage): Promise<ProjectChatMessage> {
     const result = await db.insert(projectChatMessages).values([message]).returning();
     return result[0];
+  }
+
+  // Project sharing and matching methods
+  async shareProject(share: InsertProjectShare): Promise<ProjectShare> {
+    const result = await db.insert(projectShares).values([share]).returning();
+    return result[0];
+  }
+
+  async getProjectShares(userId: string): Promise<(ProjectShare & { project: Project; sharedBy: User })[]> {
+    const result = await db
+      .select()
+      .from(projectShares)
+      .leftJoin(projects, eq(projectShares.projectId, projects.id))
+      .leftJoin(users, eq(projectShares.sharedById, users.id))
+      .where(eq(projectShares.sharedWithId, userId))
+      .orderBy(desc(projectShares.createdAt));
+    
+    return result as any;
+  }
+
+  async updateShareStatus(shareId: string, status: string): Promise<ProjectShare> {
+    const result = await db
+      .update(projectShares)
+      .set({ status })
+      .where(eq(projectShares.id, shareId))
+      .returning();
+    
+    return result[0];
+  }
+
+  async getUserInterests(userId: string): Promise<UserInterests | undefined> {
+    const result = await db
+      .select()
+      .from(userInterests)
+      .where(eq(userInterests.userId, userId));
+    
+    return result[0];
+  }
+
+  async updateUserInterests(userId: string, interests: InsertUserInterests): Promise<UserInterests> {
+    const existing = await this.getUserInterests(userId);
+    
+    if (existing) {
+      const result = await db
+        .update(userInterests)
+        .set({ ...interests, updatedAt: new Date() })
+        .where(eq(userInterests.userId, userId))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.insert(userInterests).values([{ ...interests, userId }]).returning();
+      return result[0];
+    }
+  }
+
+  async getMatchingUsers(projectId: string, limit: number = 10): Promise<(User & { matchScore: number })[]> {
+    // Get project details
+    const project = await this.getProject(projectId);
+    if (!project) return [];
+
+    // Extract keywords from project title, description, and required skills
+    const projectKeywords = this.extractKeywords(
+      `${project.title} ${project.description} ${project.requiredSkills?.join(' ') || ''}`
+    );
+
+    // Get all users with their interests
+    const usersWithInterests = await db
+      .select()
+      .from(users)
+      .leftJoin(userInterests, eq(users.id, userInterests.userId))
+      .where(eq(users.role, 'student'));
+
+    // Calculate match scores
+    const matchedUsers = usersWithInterests
+      .map((row: any) => {
+        const user = row.users;
+        const interests = row.user_interests;
+        
+        let matchScore = 0;
+        
+        if (interests) {
+          // Calculate keyword overlap
+          const userKeywords = [...(interests.keywords || []), ...(interests.researchAreas || [])];
+          const commonKeywords = projectKeywords.filter(keyword => 
+            userKeywords.some(userKeyword => 
+              userKeyword.toLowerCase().includes(keyword.toLowerCase()) ||
+              keyword.toLowerCase().includes(userKeyword.toLowerCase())
+            )
+          );
+          matchScore = (commonKeywords.length / Math.max(projectKeywords.length, 1)) * 100;
+        }
+
+        // Add skill-based matching
+        if (project.requiredSkills && user.skills) {
+          const skillMatches = project.requiredSkills.filter(skill => 
+            user.skills.some((userSkill: string) => 
+              userSkill.toLowerCase().includes(skill.toLowerCase())
+            )
+          );
+          matchScore += (skillMatches.length / project.requiredSkills.length) * 50;
+        }
+
+        return { ...user, matchScore: Math.min(matchScore, 100) };
+      })
+      .filter((user: any) => user.matchScore > 0)
+      .sort((a: any, b: any) => b.matchScore - a.matchScore)
+      .slice(0, limit);
+
+    return matchedUsers;
+  }
+
+  async getRecommendedProjects(userId: string, limit: number = 10): Promise<(Project & { matchScore: number })[]> {
+    // Get user interests
+    const interests = await this.getUserInterests(userId);
+    const user = await this.getUser(userId);
+    
+    if (!interests && !user) return [];
+
+    const userKeywords = [
+      ...(interests?.keywords || []),
+      ...(interests?.researchAreas || []),
+      ...(user?.skills || [])
+    ];
+
+    // Get all active projects
+    const allProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.status, 'active'));
+
+    // Calculate match scores
+    const matchedProjects = allProjects
+      .map(project => {
+        const projectKeywords = this.extractKeywords(
+          `${project.title} ${project.description} ${project.requiredSkills?.join(' ') || ''}`
+        );
+
+        let matchScore = 0;
+        
+        // Calculate keyword overlap
+        const commonKeywords = userKeywords.filter(userKeyword => 
+          projectKeywords.some(projectKeyword => 
+            projectKeyword.toLowerCase().includes(userKeyword.toLowerCase()) ||
+            userKeyword.toLowerCase().includes(projectKeyword.toLowerCase())
+          )
+        );
+        
+        matchScore = (commonKeywords.length / Math.max(userKeywords.length, 1)) * 100;
+
+        return { ...project, matchScore: Math.min(matchScore, 100) };
+      })
+      .filter(project => project.matchScore > 0)
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, limit);
+
+    return matchedProjects;
+  }
+
+  private extractKeywords(text: string): string[] {
+    // Simple keyword extraction - split by spaces, remove common words, clean up
+    const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'];
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !commonWords.includes(word))
+      .filter((word, index, arr) => arr.indexOf(word) === index) // Remove duplicates
+      .slice(0, 20); // Limit to 20 keywords
   }
 }
 

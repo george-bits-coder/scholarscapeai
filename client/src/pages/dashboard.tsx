@@ -12,6 +12,7 @@ import CreateProjectModal from "@/components/create-project-modal";
 import OpportunityCard from "@/components/opportunity-card";
 import CreateOpportunityModal from "@/components/create-opportunity-modal";
 import { ApplicantProfileModal } from "@/components/applicant-profile-modal";
+import { UserInterestsModal } from "@/components/user-interests-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { Search, Plus, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Search, Plus, Clock, CheckCircle, XCircle, Loader2, Settings } from "lucide-react";
 import type { Project, User, Grant } from "@shared/schema";
 
 export default function Dashboard() {
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateOpportunity, setShowCreateOpportunity] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<User | null>(null);
+  const [showUserInterests, setShowUserInterests] = useState(false);
 
   // Application status update mutation
   const updateApplicationStatusMutation = useMutation({
@@ -488,7 +490,20 @@ export default function Dashboard() {
                 <TabsContent value="browse" className="p-6">
                   {/* Show AI Recommendations for Students */}
                   {user?.role === "student" && (
-                    <div className="mb-8">
+                    <div className="mb-8 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Personalized for You</h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowUserInterests(true)}
+                          className="flex items-center gap-2"
+                          data-testid="button-manage-interests"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Manage Interests
+                        </Button>
+                      </div>
                       <ProjectRecommendations />
                     </div>
                   )}
@@ -650,6 +665,12 @@ export default function Dashboard() {
           onClose={() => setSelectedApplicant(null)}
         />
       )}
+
+      {/* User Interests Modal */}
+      <UserInterestsModal
+        isOpen={showUserInterests}
+        onClose={() => setShowUserInterests(false)}
+      />
     </div>
   );
 }

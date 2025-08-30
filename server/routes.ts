@@ -864,6 +864,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Project sharing and matching routes
+  app.get("/api/projects/:id/matching-users", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const projectId = req.params.id;
+      const project = await storage.getProject(projectId);
+      
+      if (!project || project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to access this project" });
+      }
+
+      const matchingUsers = await storage.getMatchingUsers(projectId, 20);
+      res.json(matchingUsers);
+    } catch (error) {
+      console.error('Error getting matching users:', error);
+      res.status(500).json({ error: "Failed to get matching users" });
+    }
+  });
+
+  app.post("/api/projects/:id/share", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const projectId = req.params.id;
+      const { userIds, message } = req.body;
+      
+      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({ error: "User IDs are required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.ownerId !== req.user!.id) {
+        return res.status(403).json({ error: "Not authorized to share this project" });
+      }
+
+      // Create shares for each user
+      const shares = await Promise.all(
+        userIds.map(userId => 
+          storage.shareProject({
+            projectId,
+            sharedById: req.user!.id,
+            sharedWithId: userId,
+            message: message || '',
+            status: 'pending'
+          })
+        )
+      );
+
+      // Create notifications for shared users
+      await Promise.all(
+        userIds.map(userId =>
+          storage.createNotification({
+            userId,
+            type: "project_share",
+            title: "Project Shared with You",
+            content: `${req.user!.name} shared a project: ${project.title}`,
+            payload: { projectId, shareId: shares.find(s => s.sharedWithId === userId)?.id }
+          })
+        )
+      );
+
+      res.json({ success: true, shares });
+    } catch (error) {
+      console.error('Error sharing project:', error);
+      res.status(500).json({ error: "Failed to share project" });
+    }
+  });
+
+  app.get("/api/project-shares", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const shares = await storage.getProjectShares(req.user!.id);
+      res.json(shares);
+    } catch (error) {
+      console.error('Error getting project shares:', error);
+      res.status(500).json({ error: "Failed to get project shares" });
+    }
+  });
+
+  app.put("/api/project-shares/:id/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { status } = req.body;
+      
+      if (!['pending', 'viewed', 'applied'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const share = await storage.updateShareStatus(req.params.id, status);
+      res.json(share);
+    } catch (error) {
+      console.error('Error updating share status:', error);
+      res.status(500).json({ error: "Failed to update share status" });
+    }
+  });
+
+  app.get("/api/recommendations/projects", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const recommendations = await storage.getRecommendedProjects(req.user!.id, 10);
+      res.json(recommendations);
+    } catch (error) {
+      console.error('Error getting project recommendations:', error);
+      res.status(500).json({ error: "Failed to get recommendations" });
+    }
+  });
+
+  app.get("/api/user-interests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const interests = await storage.getUserInterests(req.user!.id);
+      res.json(interests || { keywords: [], researchAreas: [] });
+    } catch (error) {
+      console.error('Error getting user interests:', error);
+      res.status(500).json({ error: "Failed to get user interests" });
+    }
+  });
+
+  app.put("/api/user-interests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { keywords, researchAreas } = req.body;
+      
+      if (!Array.isArray(keywords) || !Array.isArray(researchAreas)) {
+        return res.status(400).json({ error: "Keywords and research areas must be arrays" });
+      }
+
+      const interests = await storage.updateUserInterests(req.user!.id, {
+        keywords,
+        researchAreas
+      });
+
+      res.json(interests);
+    } catch (error) {
+      console.error('Error updating user interests:', error);
+      res.status(500).json({ error: "Failed to update user interests" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -142,6 +142,25 @@ export const projectChatMessages = pgTable("project_chat_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const projectShares = pgTable("project_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  sharedById: varchar("shared_by_id").notNull().references(() => users.id),
+  sharedWithId: varchar("shared_with_id").notNull().references(() => users.id),
+  message: text("message"),
+  matchScore: real("match_score").default(0),
+  status: text("status").notNull().default("pending"), // pending, viewed, applied
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userInterests = pgTable("user_interests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  keywords: text("keywords").array().notNull().default(sql`'{}'::text[]`),
+  researchAreas: text("research_areas").array().notNull().default(sql`'{}'::text[]`),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -210,6 +229,17 @@ export const insertProjectChatMessageSchema = createInsertSchema(projectChatMess
   createdAt: true,
 });
 
+export const insertProjectShareSchema = createInsertSchema(projectShares).omit({
+  id: true,
+  createdAt: true,
+  matchScore: true,
+});
+
+export const insertUserInterestsSchema = createInsertSchema(userInterests).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -231,3 +261,7 @@ export type InsertProjectChatMember = z.infer<typeof insertProjectChatMemberSche
 export type ProjectChatMember = typeof projectChatMembers.$inferSelect;
 export type InsertProjectChatMessage = z.infer<typeof insertProjectChatMessageSchema>;
 export type ProjectChatMessage = typeof projectChatMessages.$inferSelect;
+export type InsertProjectShare = z.infer<typeof insertProjectShareSchema>;
+export type ProjectShare = typeof projectShares.$inferSelect;
+export type InsertUserInterests = z.infer<typeof insertUserInterestsSchema>;
+export type UserInterests = typeof userInterests.$inferSelect;

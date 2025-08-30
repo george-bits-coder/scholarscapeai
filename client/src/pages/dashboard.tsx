@@ -201,6 +201,38 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Researchers */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Researchers</h3>
+                <div className="space-y-3">
+                  {researchers.map((researcher) => (
+                    <div key={researcher.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {researcher.name?.charAt(0) || researcher.username?.charAt(0) || "?"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {researcher.name || researcher.username}
+                        </p>
+                        <p className="text-xs text-gray-500 capitalize">
+                          {researcher.role} • {researcher.affiliation}
+                        </p>
+                        {researcher.researchInterests && researcher.researchInterests.length > 0 && (
+                          <p className="text-xs text-gray-400 truncate mt-1">
+                            {researcher.researchInterests[0]}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {researchers.length === 0 && (
+                    <p className="text-sm text-gray-500">No researchers found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Main Content */}
@@ -589,23 +621,6 @@ export default function Dashboard() {
               </Card>
             </Tabs>
 
-            {/* Featured Researchers */}
-            <Card className="mt-6">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Featured Researchers</h2>
-                  <span className="text-sm text-gray-500">
-                    Showing {researchers.length} researchers
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {researchers.slice(0, 3).map((researcher) => (
-                    <ResearcherCard key={researcher.id} researcher={researcher} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

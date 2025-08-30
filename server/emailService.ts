@@ -75,22 +75,23 @@ export class EmailService {
     message?: string,
     loginUrl: string = 'https://your-domain.replit.app'
   ): EmailTemplate {
-    const subject = `${sharedByName} shared a research project with you: ${projectTitle}`;
+    const subject = `${sharedByName} thinks you'd be interested in: ${projectTitle}`;
     
     const text = `
 Hi ${recipientName},
 
-${sharedByName} has shared an exciting research project with you on ResearchCollab:
+${sharedByName} thought you might be interested in this research opportunity:
 
-Project: ${projectTitle}
+"${projectTitle}"
 
-${message ? `Personal message: "${message}"` : ''}
+${message ? `${sharedByName} said: "${message}"` : ''}
 
-Login to ResearchCollab to view the project details and apply:
-${loginUrl}
+You can check it out here: ${loginUrl}
 
-Best regards,
-The ResearchCollab Team
+This looks like it could be a great fit for your background. If you're interested, just click the link above to learn more and get in touch.
+
+Cheers,
+${sharedByName}
     `.trim();
 
     const html = `
@@ -98,32 +99,25 @@ The ResearchCollab Team
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .message { background: #f8f9fa; padding: 15px; border-left: 3px solid #007bff; margin: 15px 0; }
+    a { color: #007bff; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>ResearchCollab</h1>
-    </div>
-    <div class="content">
-      <h2>New Project Shared With You!</h2>
-      <p>Hi ${recipientName},</p>
-      <p><strong>${sharedByName}</strong> has shared an exciting research project with you:</p>
-      <h3>📊 ${projectTitle}</h3>
-      ${message ? `<div style="background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;"><strong>Personal message:</strong><br>"${message}"</div>` : ''}
-      <p>Login to ResearchCollab to view the project details and apply:</p>
-      <a href="${loginUrl}" class="button">View Project & Apply</a>
-    </div>
-    <div class="footer">
-      <p>This email was sent from ResearchCollab - Connecting researchers worldwide</p>
-    </div>
-  </div>
+  <p>Hi ${recipientName},</p>
+  
+  <p>${sharedByName} thought you might be interested in this research opportunity:</p>
+  
+  <h3>"${projectTitle}"</h3>
+  
+  ${message ? `<div class="message"><strong>${sharedByName} said:</strong><br>"${message}"</div>` : ''}
+  
+  <p>You can check it out here: <a href="${loginUrl}">View Project</a></p>
+  
+  <p>This looks like it could be a great fit for your background. If you're interested, just click the link above to learn more and get in touch.</p>
+  
+  <p>Cheers,<br>${sharedByName}</p>
 </body>
 </html>
     `.trim();
@@ -140,21 +134,22 @@ The ResearchCollab Team
     reviewNotes?: string,
     loginUrl: string = 'https://your-domain.replit.app'
   ): EmailTemplate {
-    const statusText = status.replace('_', ' ').toUpperCase();
-    const subject = `Application ${statusText}: ${projectTitle}`;
+    const statusText = status.replace('_', ' ');
+    const subject = `Update on your application: ${projectTitle}`;
     
     const text = `
 Hi ${recipientName},
 
-Your application for the research project "${projectTitle}" has been ${status.replace('_', ' ')}.
+I wanted to let you know that your application for "${projectTitle}" has been ${statusText}.
 
-${reviewNotes ? `Review notes: ${reviewNotes}` : ''}
+${reviewNotes ? `Here's what I noted: "${reviewNotes}"` : ''}
 
-Login to ResearchCollab to view your application status:
-${loginUrl}
+You can check your application status here: ${loginUrl}
 
-Best regards,
-The ResearchCollab Team
+${status === 'approved' ? 'Looking forward to working with you!' : 'Thank you for your interest in this project.'}
+
+Best,
+The Project Team
     `.trim();
 
     const html = `
@@ -162,36 +157,32 @@ The ResearchCollab Team
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .status-approved { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; }
-    .status-rejected { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; }
-    .status-under_review { background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; }
-    .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .status { padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .approved { background: #d4edda; color: #155724; }
+    .rejected { background: #f8d7da; color: #721c24; }
+    .under_review { background: #fff3cd; color: #856404; }
+    a { color: #007bff; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>ResearchCollab</h1>
-    </div>
-    <div class="content">
-      <h2>Application Status Update</h2>
-      <p>Hi ${recipientName},</p>
-      <div class="status-${status}">
-        <strong>Your application for "${projectTitle}" has been ${statusText}</strong>
-      </div>
-      ${reviewNotes ? `<div style="background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;"><strong>Review notes:</strong><br>${reviewNotes}</div>` : ''}
-      <p>Login to ResearchCollab to view your application details:</p>
-      <a href="${loginUrl}" class="button">View Application</a>
-    </div>
-    <div class="footer">
-      <p>This email was sent from ResearchCollab - Connecting researchers worldwide</p>
-    </div>
+  <p>Hi ${recipientName},</p>
+  
+  <p>I wanted to let you know that your application for "${projectTitle}" has been ${statusText}.</p>
+  
+  <div class="status ${status}">
+    ${status === 'approved' ? '🎉 Congratulations! Your application has been approved.' : 
+      status === 'rejected' ? 'Thank you for your application. Unfortunately, we won\'t be moving forward at this time.' : 
+      '⏳ Your application is currently under review.'}
   </div>
+  
+  ${reviewNotes ? `<p><strong>Note:</strong> "${reviewNotes}"</p>` : ''}
+  
+  <p>You can check your application status here: <a href="${loginUrl}">View Application</a></p>
+  
+  <p>${status === 'approved' ? 'Looking forward to working with you!' : 'Thank you for your interest in this project.'}</p>
+  
+  <p>Best,<br>The Project Team</p>
 </body>
 </html>
     `.trim();
@@ -207,18 +198,19 @@ The ResearchCollab Team
     applicantName: string,
     loginUrl: string = 'https://your-domain.replit.app'
   ): EmailTemplate {
-    const subject = `New application for your project: ${projectTitle}`;
+    const subject = `${applicantName} applied to your project: ${projectTitle}`;
     
     const text = `
 Hi ${recipientName},
 
-You have received a new application for your research project "${projectTitle}" from ${applicantName}.
+Good news! ${applicantName} just applied to your research project "${projectTitle}".
 
-Login to ResearchCollab to review the application:
-${loginUrl}
+You can review their application here: ${loginUrl}
 
-Best regards,
-The ResearchCollab Team
+Take a look at their background and see if they'd be a good fit for your team.
+
+Best,
+The Platform Team
     `.trim();
 
     const html = `
@@ -226,32 +218,25 @@ The ResearchCollab Team
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .highlight { background: #f8f9fa; padding: 15px; border-left: 3px solid #28a745; margin: 15px 0; }
+    a { color: #007bff; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>ResearchCollab</h1>
-    </div>
-    <div class="content">
-      <h2>🎉 New Application Received!</h2>
-      <p>Hi ${recipientName},</p>
-      <p>You have received a new application for your research project:</p>
-      <h3>📊 ${projectTitle}</h3>
-      <p>Applicant: <strong>${applicantName}</strong></p>
-      <p>Login to ResearchCollab to review the application and make a decision:</p>
-      <a href="${loginUrl}" class="button">Review Application</a>
-    </div>
-    <div class="footer">
-      <p>This email was sent from ResearchCollab - Connecting researchers worldwide</p>
-    </div>
+  <p>Hi ${recipientName},</p>
+  
+  <p>Good news! <strong>${applicantName}</strong> just applied to your research project:</p>
+  
+  <div class="highlight">
+    <strong>"${projectTitle}"</strong>
   </div>
+  
+  <p>You can review their application here: <a href="${loginUrl}">Review Application</a></p>
+  
+  <p>Take a look at their background and see if they'd be a good fit for your team.</p>
+  
+  <p>Best,<br>The Platform Team</p>
 </body>
 </html>
     `.trim();

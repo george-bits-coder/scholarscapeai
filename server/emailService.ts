@@ -17,7 +17,7 @@ export interface EmailTemplate {
 }
 
 export class EmailService {
-  private fromEmail = 'noreply@researchcollab.com'; // You can change this to your verified domain
+  private fromEmail = 'debanjanborthakur@gmail.com'; // Use verified email for SendGrid
   private adminEmail = 'debanjanborthakur@gmail.com'; // Admin always gets notified
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
@@ -61,6 +61,7 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send email:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return false;
     }
   }

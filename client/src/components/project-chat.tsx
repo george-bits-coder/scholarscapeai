@@ -43,11 +43,14 @@ export function ProjectChat({ projectId, projectTitle }: ProjectChatProps) {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
+      if (!chat) throw new Error("Chat not available");
       const res = await apiRequest("POST", `/api/chats/${chat.id}/messages`, { content });
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/chats/${chat.id}/messages`] });
+      if (chat) {
+        queryClient.invalidateQueries({ queryKey: [`/api/chats/${chat.id}/messages`] });
+      }
       setNewMessage("");
     },
   });
@@ -144,7 +147,7 @@ export function ProjectChat({ projectId, projectTitle }: ProjectChatProps) {
                 const prevMessage = index > 0 ? messages[index - 1] : null;
                 const showHeader = !prevMessage || 
                   prevMessage.senderId !== message.senderId ||
-                  new Date(message.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000; // 5 minutes
+                  new Date(message.createdAt!).getTime() - new Date(prevMessage.createdAt!).getTime() > 300000; // 5 minutes
 
                 return (
                   <div key={message.id} className="group">
@@ -161,7 +164,7 @@ export function ProjectChat({ projectId, projectTitle }: ProjectChatProps) {
                               {message.sender?.name}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {formatMessageTime(message.createdAt)}
+                              {formatMessageTime(message.createdAt!)}
                             </span>
                           </div>
                           <p className="text-sm break-words">{message.content}</p>
@@ -171,7 +174,7 @@ export function ProjectChat({ projectId, projectTitle }: ProjectChatProps) {
                       <div className="flex items-start gap-3 hover:bg-muted/20 -mx-2 px-2 py-1 rounded">
                         <div className="w-8 flex justify-center">
                           <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100">
-                            {format(new Date(message.createdAt), "HH:mm")}
+                            {format(new Date(message.createdAt!), "HH:mm")}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">

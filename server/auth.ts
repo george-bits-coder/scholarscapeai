@@ -106,6 +106,7 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
+        verified: true, // Auto-verify new users so they appear in researchers
       });
 
       console.log("User created successfully:", user.id);

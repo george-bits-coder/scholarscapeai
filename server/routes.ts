@@ -532,11 +532,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (role) {
         users = await storage.getUsersByRole(role as string);
       } else {
-        // Get all verified users for backward compatibility
-        users = await storage.getUsersByRole("researcher");
+        // Get all professors and students (remove verification filter)
         const professors = await storage.getUsersByRole("professor");
         const students = await storage.getUsersByRole("student");
-        users = [...users, ...professors, ...students].filter(user => user.verified);
+        users = [...professors, ...students];
       }
       
       // Remove password from response

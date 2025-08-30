@@ -76,10 +76,6 @@ export default function ResearcherProfile() {
                     </div>
                   )}
                   
-                  <div className="flex items-center text-gray-600 mb-4">
-                    <Mail className="w-4 h-4 mr-2" />
-                    <span data-testid="researcher-email">{researcher.email}</span>
-                  </div>
                   
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center">
@@ -102,8 +98,8 @@ export default function ResearcherProfile() {
                 <Button 
                   className="bg-primary text-white hover:bg-blue-700" 
                   onClick={() => {
-                    // TODO: Implement messaging functionality
-                    alert('Messaging feature coming soon!');
+                    // Create a new message thread with this researcher
+                    window.location.href = `/messages?to=${researcher.id}`;
                   }}
                   data-testid="button-message"
                 >
@@ -111,9 +107,28 @@ export default function ResearcherProfile() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => {
-                    // TODO: Implement connection functionality
-                    alert('Connection request sent!');
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/notifications', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                          recipientId: researcher.id,
+                          type: 'connection_request',
+                          title: 'New Connection Request',
+                          content: `Someone wants to connect with you!`
+                        })
+                      });
+                      
+                      if (response.ok) {
+                        alert('Connection request sent successfully!');
+                      } else {
+                        alert('Failed to send connection request. Please try again.');
+                      }
+                    } catch (error) {
+                      alert('Error sending connection request. Please try again.');
+                    }
                   }}
                   data-testid="button-connect"
                 >

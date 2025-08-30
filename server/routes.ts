@@ -853,8 +853,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to access this project" });
       }
 
-      const matchingUsers = await storage.getMatchingUsers(projectId, 20);
-      res.json(matchingUsers);
+      // Get all users except the project owner, with compatibility scores
+      const allUsers = await storage.getUsersByRole('student');
+      const professors = await storage.getUsersByRole('professor');
+      const allPotentialUsers = [...allUsers, ...professors].filter(user => user.id !== req.user!.id);
+      
+      // Calculate match scores for each user
+      const usersWithScores = await Promise.all(
+        allPotentialUsers.map(async (user) => {
+          try {
+            const matchScore = await matchingService.calculateUserProjectCompatibility(user.id, projectId);
+            const { password, ...publicUser } = user;
+            return {
+              ...publicUser,
+              matchScore: Math.round(matchScore * 100)
+            };
+          } catch (error) {
+            const { password, ...publicUser } = user;
+            return {
+              ...publicUser,
+              matchScore: 0
+            };
+          }
+        })
+      );
+
+      // Sort by match score (highest first)
+      usersWithScores.sort((a, b) => b.matchScore - a.matchScore);
+      
+      res.json(usersWithScores);
     } catch (error) {
       console.error('Error getting matching users:', error);
       res.status(500).json({ error: "Failed to get matching users" });

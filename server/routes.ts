@@ -575,32 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Matching Routes
-  app.get("/api/recommendations/projects", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const user = req.user!;
-      
-      // Only students can get project recommendations
-      if (user.role !== "student") {
-        return res.status(403).json({ error: "Only students can get project recommendations" });
-      }
-
-      const { limit = "10" } = req.query;
-      const matches = await matchingService.findProjectMatchesForStudent(
-        user.id, 
-        parseInt(limit as string)
-      );
-      
-      res.json(matches);
-    } catch (error) {
-      console.error("Error getting project recommendations:", error);
-      res.status(500).json({ error: "Failed to get project recommendations" });
-    }
-  });
+  // AI Matching Routes (removed - replaced with new implementation below)
 
   app.get("/api/recommendations/students/:projectId", async (req, res) => {
     if (!req.isAuthenticated()) {

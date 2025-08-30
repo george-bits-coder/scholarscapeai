@@ -488,25 +488,25 @@ export default function Dashboard() {
                 </TabsContent>
 
                 <TabsContent value="browse" className="p-6">
-                  {/* Show AI Recommendations for Students */}
-                  {user?.role === "student" && (
-                    <div className="mb-8 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Personalized for You</h3>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowUserInterests(true)}
-                          className="flex items-center gap-2"
-                          data-testid="button-manage-interests"
-                        >
-                          <Settings className="h-4 w-4" />
-                          Manage Interests
-                        </Button>
-                      </div>
-                      <ProjectRecommendations />
+                  {/* Show AI Recommendations for All Users */}
+                  <div className="mb-8 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">
+                        {user?.role === "student" ? "Personalized for You" : "AI-Powered Recommendations"}
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowUserInterests(true)}
+                        className="flex items-center gap-2"
+                        data-testid="button-manage-interests"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Manage Interests
+                      </Button>
                     </div>
-                  )}
+                    <ProjectRecommendations />
+                  </div>
 
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center space-x-4">

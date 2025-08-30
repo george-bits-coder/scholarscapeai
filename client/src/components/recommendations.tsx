@@ -27,10 +27,10 @@ export function ProjectRecommendations() {
 
   const { data: recommendations = [], isLoading } = useQuery<ProjectRecommendation[]>({
     queryKey: ["/api/recommendations/projects"],
-    enabled: user?.role === "student",
+    enabled: !!user,
   });
 
-  if (!user || user.role !== "student") {
+  if (!user) {
     return null;
   }
 

@@ -945,10 +945,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const projectId = req.params.id;
-      const { userIds, message } = req.body;
+      const { userIds = [], emails = [], message } = req.body;
       
-      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        return res.status(400).json({ error: "User IDs are required" });
+      if ((!userIds || userIds.length === 0) && (!emails || emails.length === 0)) {
+        return res.status(400).json({ error: "At least one user ID or email is required" });
       }
 
       const project = await storage.getProject(projectId);
@@ -985,7 +985,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const recipient = await storage.getUser(userId);
             if (recipient?.email) {
-              const loginUrl = process.env.REPLIT_DOMAINS || 'http://localhost:5000';
+              const loginUrl = process.env.REPLIT_DOMAINS 
+                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                : 'http://localhost:5000';
               const emailTemplate = emailService.createProjectShareEmail(
                 recipient.email,
                 recipient.name,
@@ -995,9 +997,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 loginUrl
               );
               await emailService.sendEmail(emailTemplate);
+              console.log(`Project share email sent to platform user: ${recipient.email}`);
             }
           } catch (emailError) {
             console.error('Failed to send email notification:', emailError);
+            // Don't fail the request if email fails
+          }
+        })
+      );
+
+      // Send emails to external email addresses
+      await Promise.all(
+        emails.map(async email => {
+          try {
+            const loginUrl = process.env.REPLIT_DOMAINS 
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+              : 'http://localhost:5000';
+            const emailTemplate = emailService.createProjectShareEmail(
+              email,
+              email.split('@')[0], // Use email username as name
+              project.title,
+              req.user!.name,
+              message,
+              loginUrl
+            );
+            await emailService.sendEmail(emailTemplate);
+            console.log(`Project share email sent to external email: ${email}`);
+          } catch (emailError) {
+            console.error('Failed to send email to external address:', emailError);
             // Don't fail the request if email fails
           }
         })

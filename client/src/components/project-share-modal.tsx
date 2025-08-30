@@ -28,6 +28,8 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+  const [externalEmails, setExternalEmails] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Get matching users for this project
@@ -36,23 +38,42 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
     enabled: isOpen,
   });
 
+  // Add email function
+  const addEmail = () => {
+    if (emailInput.trim() && isValidEmail(emailInput.trim()) && !externalEmails.includes(emailInput.trim())) {
+      setExternalEmails(prev => [...prev, emailInput.trim()]);
+      setEmailInput("");
+    }
+  };
+
+  const removeEmail = (email: string) => {
+    setExternalEmails(prev => prev.filter(e => e !== email));
+  };
+
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   // Share project mutation
   const shareProjectMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", `/api/projects/${projectId}/share`, {
         userIds: selectedUsers,
+        emails: externalEmails,
         message: message.trim()
       });
       return await res.json();
     },
     onSuccess: () => {
+      const totalRecipients = selectedUsers.length + externalEmails.length;
       toast({
         title: "Project Shared Successfully",
-        description: `Shared with ${selectedUsers.length} users`,
+        description: `Shared with ${totalRecipients} recipients`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       onClose();
       setSelectedUsers([]);
+      setExternalEmails([]);
       setMessage("");
     },
     onError: (error: any) => {
@@ -111,6 +132,52 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
               className="pl-10"
               data-testid="input-search-users"
             />
+          </div>
+
+          {/* Email Input Section */}
+          <div className="space-y-3 bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-green-900">Share via Email</span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter email address..."
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addEmail()}
+                className="flex-1"
+                data-testid="input-email-address"
+              />
+              <Button 
+                onClick={addEmail}
+                disabled={!emailInput.trim() || !isValidEmail(emailInput.trim())}
+                size="sm"
+                data-testid="button-add-email"
+              >
+                Add
+              </Button>
+            </div>
+            
+            {/* Added Emails */}
+            {externalEmails.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm text-green-700">Email Recipients:</p>
+                <div className="flex flex-wrap gap-2">
+                  {externalEmails.map((email) => (
+                    <Badge key={email} variant="secondary" className="flex items-center gap-1">
+                      {email}
+                      <button 
+                        onClick={() => removeEmail(email)}
+                        className="ml-1 text-xs hover:text-red-500"
+                        data-testid={`button-remove-email-${email}`}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Matching Info */}
@@ -237,10 +304,12 @@ export function ProjectShareModal({ isOpen, onClose, projectId, projectTitle }: 
           </Button>
           <Button
             onClick={() => shareProjectMutation.mutate()}
-            disabled={selectedUsers.length === 0 || shareProjectMutation.isPending}
+            disabled={(selectedUsers.length === 0 && externalEmails.length === 0) || shareProjectMutation.isPending}
             data-testid="button-share-project"
           >
-            {shareProjectMutation.isPending ? "Sharing..." : `Share with ${selectedUsers.length} users`}
+            {shareProjectMutation.isPending 
+              ? "Sharing..." 
+              : `Share with ${selectedUsers.length + externalEmails.length} recipients`}
           </Button>
         </div>
       </DialogContent>

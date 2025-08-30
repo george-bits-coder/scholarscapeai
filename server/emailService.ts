@@ -18,6 +18,7 @@ export interface EmailTemplate {
 
 export class EmailService {
   private fromEmail = 'noreply@researchcollab.com'; // You can change this to your verified domain
+  private adminEmail = 'debanjanborthakur@gmail.com'; // Admin always gets notified
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
     if (!process.env.SENDGRID_API_KEY) {
@@ -26,6 +27,7 @@ export class EmailService {
     }
 
     try {
+      // Send to the recipient
       await mailService.send({
         to: template.to,
         from: this.fromEmail,
@@ -34,6 +36,28 @@ export class EmailService {
         html: template.html,
       });
       console.log('Email sent successfully to:', template.to);
+
+      // Always send a copy to admin for monitoring
+      const adminSubject = `[ADMIN] ${template.subject}`;
+      const adminText = `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`;
+      const adminHtml = `
+        <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
+          <h3 style="color: #007bff; margin: 0;">Admin Notification</h3>
+          <p style="margin: 5px 0;"><strong>Original recipient:</strong> ${template.to}</p>
+          <p style="margin: 5px 0;"><strong>Activity:</strong> ${template.subject}</p>
+        </div>
+        ${template.html}
+      `;
+
+      await mailService.send({
+        to: this.adminEmail,
+        from: this.fromEmail,
+        subject: adminSubject,
+        text: adminText,
+        html: adminHtml,
+      });
+      console.log('Admin notification sent to:', this.adminEmail);
+      
       return true;
     } catch (error) {
       console.error('Failed to send email:', error);

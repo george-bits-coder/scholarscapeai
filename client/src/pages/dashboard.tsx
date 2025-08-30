@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/header";
 import ProjectCard from "@/components/project-card";
@@ -208,24 +209,26 @@ export default function Dashboard() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Researchers</h3>
                 <div className="space-y-3">
                   {researchers.map((researcher) => (
-                    <div key={researcher.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                        {researcher.name?.charAt(0) || researcher.username?.charAt(0) || "?"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {researcher.name || researcher.username}
-                        </p>
-                        <p className="text-xs text-gray-500 capitalize">
-                          {researcher.role} • {researcher.affiliation}
-                        </p>
-                        {researcher.researchInterests && researcher.researchInterests.length > 0 && (
-                          <p className="text-xs text-gray-400 truncate mt-1">
-                            {researcher.researchInterests[0]}
+                    <Link key={researcher.id} href={`/researchers/${researcher.id}`}>
+                      <div className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                          {researcher.name?.charAt(0) || researcher.username?.charAt(0) || "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {researcher.name || researcher.username}
                           </p>
-                        )}
+                          <p className="text-xs text-gray-500 capitalize">
+                            {researcher.role} • {researcher.affiliation}
+                          </p>
+                          {researcher.researchInterests && researcher.researchInterests.length > 0 && (
+                            <p className="text-xs text-gray-400 truncate mt-1">
+                              {researcher.researchInterests[0]}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                   {researchers.length === 0 && (
                     <p className="text-sm text-gray-500">No researchers found</p>

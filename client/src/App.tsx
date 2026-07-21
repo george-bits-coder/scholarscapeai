@@ -24,15 +24,15 @@ function Router() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/" component={LandingPage} />
-      <ProtectedRoute path="/dashboard" component={Dashboard} />
-      <ProtectedRoute path="/projects" component={ProjectsPage} />
-      <ProtectedRoute path="/projects/:id" component={ProjectDetail} />
-      <ProtectedRoute path="/project/:id" component={ProjectDetailsPage} />
-      <ProtectedRoute path="/project/:id/chat" component={ProjectChatPage} />
-      <ProtectedRoute path="/researchers" component={ResearchersPage} />
-      <ProtectedRoute path="/researchers/:id" component={ResearcherProfile} />
-      <ProtectedRoute path="/grants" component={GrantsPage} />
-      <ProtectedRoute path="/messages" component={MessagesPage} />
+      <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/projects" component={() => <ProtectedRoute component={ProjectsPage} />} />
+      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetail} />} />
+      <Route path="/project/:id" component={() => <ProtectedRoute component={ProjectDetailsPage} />} />
+      <Route path="/project/:id/chat" component={() => <ProtectedRoute component={ProjectChatPage} />} />
+      <Route path="/researchers" component={() => <ProtectedRoute component={ResearchersPage} />} />
+      <Route path="/researchers/:id" component={() => <ProtectedRoute component={ResearcherProfile} />} />
+      <Route path="/grants" component={() => <ProtectedRoute component={GrantsPage} />} />
+      <Route path="/messages" component={() => <ProtectedRoute component={MessagesPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

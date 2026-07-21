@@ -46,7 +46,7 @@ export default function Header() {
               <button
                 onClick={() => {
                   setActiveNav("dashboard");
-                  setLocation("/");
+                  setLocation("/dashboard");
                 }}
                 className={`${
                   activeNav === "dashboard" 
@@ -58,7 +58,10 @@ export default function Header() {
                 Dashboard
               </button>
               <button
-                onClick={() => setActiveNav("projects")}
+                onClick={() => {
+                  setActiveNav("projects");
+                  setLocation("/projects");
+                }}
                 className={`${
                   activeNav === "projects" 
                     ? "text-primary font-medium border-b-2 border-primary pb-1" 
@@ -69,7 +72,10 @@ export default function Header() {
                 Projects
               </button>
               <button
-                onClick={() => setActiveNav("researchers")}
+                onClick={() => {
+                  setActiveNav("researchers");
+                  setLocation("/researchers");
+                }}
                 className={`${
                   activeNav === "researchers" 
                     ? "text-primary font-medium border-b-2 border-primary pb-1" 
@@ -80,7 +86,10 @@ export default function Header() {
                 Researchers
               </button>
               <button
-                onClick={() => setActiveNav("grants")}
+                onClick={() => {
+                  setActiveNav("grants");
+                  setLocation("/grants");
+                }}
                 className={`${
                   activeNav === "grants" 
                     ? "text-primary font-medium border-b-2 border-primary pb-1" 

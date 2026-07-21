@@ -65,7 +65,7 @@ export default function AuthPage() {
   // Redirect if already logged in
   React.useEffect(() => {
     if (user) {
-      setLocation("/");
+      setLocation("/dashboard");
     }
   }, [user, setLocation]);
 
@@ -77,7 +77,7 @@ export default function AuthPage() {
   const onLogin = (data: LoginData) => {
     loginMutation.mutate(data, {
       onSuccess: () => {
-        setLocation("/");
+        setLocation("/dashboard");
       },
     });
   };
@@ -94,7 +94,7 @@ export default function AuthPage() {
     };
     registerMutation.mutate(processedData, {
       onSuccess: () => {
-        setLocation("/");
+        setLocation("/dashboard");
       },
     });
   };

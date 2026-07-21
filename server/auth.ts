@@ -111,30 +111,31 @@ export function setupAuth(app: Express) {
 
       console.log("User created successfully:", user.id);
 
-      req.login(user, (err) => {
+      req.login(user, (err: unknown) => {
         if (err) {
           console.error("Login error after registration:", err);
           return next(err);
         }
         res.status(201).json(user);
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed: " + error.message });
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: "Registration failed: " + message });
     }
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: unknown, user: Express.User | false | undefined, info: any) => {
       if (err) {
         return next(err);
       }
       if (!user) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
-      req.login(user, (err) => {
-        if (err) {
-          return next(err);
+      req.login(user, (loginErr: unknown) => {
+        if (loginErr) {
+          return next(loginErr);
         }
         return res.status(200).json(user);
       });

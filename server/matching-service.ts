@@ -2,15 +2,39 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import type { User, Project } from "@shared/schema";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+
+if (!openai) {
+  console.warn(
+    "OPENAI_API_KEY is not configured. AI matching and embeddings will be disabled.",
+  );
+}
 
 export class MatchingService {
+  private ensureOpenAI(): OpenAI {
+    if (!openai) {
+      throw new Error(
+        "OPENAI_API_KEY is not configured. Set OPENAI_API_KEY in your environment to enable AI matching.",
+      );
+    }
+    return openai;
+  }
+
+  private openAIEnabled(): boolean {
+    return Boolean(openai);
+  }
+
   // Generate embedding for user profile
   async generateUserEmbedding(user: User): Promise<number[]> {
+    if (!this.openAIEnabled()) {
+      throw new Error("OpenAI is not configured.");
+    }
+
     const profileText = this.createUserProfileText(user);
     
     try {
-      const response = await openai.embeddings.create({
+      const response = await this.ensureOpenAI().embeddings.create({
         model: "text-embedding-3-small",
         input: profileText,
       });
@@ -24,10 +48,14 @@ export class MatchingService {
 
   // Generate embedding for project
   async generateProjectEmbedding(project: Project): Promise<number[]> {
+    if (!this.openAIEnabled()) {
+      throw new Error("OpenAI is not configured.");
+    }
+
     const projectText = this.createProjectText(project);
     
     try {
-      const response = await openai.embeddings.create({
+      const response = await this.ensureOpenAI().embeddings.create({
         model: "text-embedding-3-small",
         input: projectText,
       });

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScholarScape — Find Your Next Research Opportunity</title>
+  <meta name="description" content="ScholarScape connects ambitious students with professors and real research projects. AI matches you to opportunities that fit your skills." />
+  <style>
+    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; }
+    body[data-landing] { all: unset !important; display: block !important; width: 100% !important; min-height: 100vh !important; margin: 0 !important; padding: 0 !important; font-family: system-ui, -apple-system, sans-serif !important; color: #111827 !important; background: #fff !important; line-height: 1.5 !important; }
+    body[data-landing] *, body[data-landing] *::before, body[data-landing] *::after {
+      all: unset !important;
+      box-sizing: border-box !important;
+    }
+    body[data-landing] a { text-decoration: none !important; color: inherit !important; }
+    body[data-landing] svg { display: inline-block !important; vertical-align: middle !important; }
+
+    :root {
+      --primary: #0f766e;
+      --primary-light: #ccfbf1;
+      --primary-hover: #0d6460;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+
+    body { font-family: system-ui, -apple-system, sans-serif !important; color: var(--gray-900) !important; background: #fff !important; line-height: 1.5 !important; }
+    a { text-decoration: none !important; color: inherit !important; }
+    svg { display: inline-block !important; vertical-align: middle !important; }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .nav-inner {
+      max-width: 1152px; margin: 0 auto; padding: 0 1.5rem;
+      display: flex; align-items: center; justify-content: space-between; height: 64px;
+    }
+    .logo { display: flex; align-items: center; gap: .5rem; }
+    .logo-box {
+      width: 32px; height: 32px; background: var(--primary);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: .85rem;
+    }
+    .logo-text { font-size: 1.2rem; font-weight: 600; }
+    .nav-btns { display: flex; align-items: center; gap: .75rem; }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .55rem 1.2rem; border-radius: 8px; font-size: .9rem;
+      font-weight: 500; cursor: pointer; border: none; transition: all .15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-outline:hover { background: rgba(15,118,110,.05); }
+    .btn-ghost { background: transparent; color: var(--gray-700); }
+    .btn-ghost:hover { background: var(--gray-100); }
+    .btn-white { background: #fff; color: var(--primary); }
+    .btn-white:hover { background: #f0fdfa; }
+    .btn-lg { padding: .75rem 2rem; font-size: 1rem; }
+
+    /* BADGE */
+    .badge {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .3rem .75rem; border-radius: 999px; font-size: .78rem; font-weight: 500; border: 1px solid;
+    }
+    .badge-teal { background: rgba(15,118,110,.08); color: var(--primary); border-color: rgba(15,118,110,.2); }
+    .badge-white { background: rgba(255,255,255,.2); color: #fff; border-color: rgba(255,255,255,.3); }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #f0fdfa 0%, #fff 50%, #f0fdfa 100%);
+      padding: 5rem 1.5rem 4rem; text-align: center; overflow: hidden; position: relative;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 80% 0%, rgba(153,246,228,.35), transparent 60%);
+      pointer-events: none;
+    }
+    .hero-inner { max-width: 1152px; margin: 0 auto; position: relative; }
+    .hero h1 { font-size: clamp(2.2rem, 5vw, 3.75rem); font-weight: 700; line-height: 1.15; margin: 1rem 0 1.5rem; }
+    .hero h1 span { color: var(--primary); }
+    .hero p { font-size: 1.15rem; color: var(--gray-600); max-width: 600px; margin: 0 auto 2.5rem; }
+    .hero-btns { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+    .hero-note { font-size: .85rem; color: var(--gray-400); margin-top: 1rem; }
+
+    /* STATS BAR */
+    .stats-bar { background: var(--gray-50); border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); padding: 1.25rem 1.5rem; }
+    .stats-inner { max-width: 960px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem 3rem; text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: .75rem; color: var(--gray-500); }
+
+    /* SECTIONS */
+    .section { padding: 5rem 1.5rem; }
+    .section-inner { max-width: 1152px; margin: 0 auto; }
+    .section-title { font-size: 1.875rem; font-weight: 700; line-height: 1.25; }
+    .section-sub { color: var(--gray-600); margin: 1rem 0 1.5rem; line-height: 1.7; }
+
+    .two-col { display: grid; grid-template-columns: 1fr; gap: 3rem; align-items: center; }
+    @media (min-width: 768px) { .two-col { grid-template-columns: 1fr 1fr; gap: 4rem; } }
+
+    .check-list { list-style: none; display: flex; flex-direction: column; gap: .75rem; margin: 1.5rem 0 2rem; }
+    .check-list li { display: flex; align-items: flex-start; gap: .6rem; color: var(--gray-700); font-size: .95rem; }
+    .check-icon { color: var(--primary); flex-shrink: 0; margin-top: 2px; }
+
+    /* CARDS */
+    .card-stack { display: flex; flex-direction: column; gap: 1rem; }
+    .feature-card {
+      background: #fff; border: 1px solid var(--gray-100);
+      border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .2s;
+    }
+    .feature-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    .feature-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(15,118,110,.1); display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0;
+    }
+    .feature-card h4 { font-size: .95rem; font-weight: 600; margin-bottom: .3rem; }
+    .feature-card p { font-size: .85rem; color: var(--gray-500); line-height: 1.5; }
+    .feature-card-dark { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(4px); }
+    .feature-card-dark h4 { color: #fff; }
+    .feature-card-dark p { color: rgba(255,255,255,.7); }
+    .feature-icon-dark { background: rgba(255,255,255,.2); }
+
+    /* PROFESSORS SECTION */
+    .prof-section { background: linear-gradient(135deg, #0f766e, #0d6460); padding: 5rem 1.5rem; }
+
+    /* HOW IT WORKS */
+    .steps { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+    @media (min-width: 768px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+    .step { text-align: center; position: relative; }
+    .step-icon-wrap {
+      width: 64px; height: 64px; border-radius: 16px; background: rgba(15,118,110,.1);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem; position: relative;
+    }
+    .step-num {
+      position: absolute; top: -8px; right: -8px;
+      width: 24px; height: 24px; background: var(--primary); color: #fff;
+      border-radius: 50%; font-size: .7rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-connector { display: none; position: absolute; top: 32px; left: 60%; width: 80%; height: 0; border-top: 2px dashed rgba(15,118,110,.2); }
+    @media (min-width: 768px) { .step-connector { display: block; } }
+    .step h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: .5rem; }
+    .step p { font-size: .85rem; color: var(--gray-500); line-height: 1.6; }
+
+    /* TESTIMONIALS */
+    .testimonials-section { background: var(--gray-50); padding: 4rem 1.5rem; }
+    .testimonials { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 960px; margin: 0 auto; padding: 0 0.5rem; }
+    @media (min-width: 768px) { .testimonials { grid-template-columns: repeat(3, 1fr); padding: 0; } }
+    .testimonial-card { background: #fff; border: 1px solid rgba(226, 232, 240, .8); border-radius: 20px; padding: 1.5rem; box-shadow: 0 12px 28px rgba(15,23,42,.08); }
+    .stars { display: flex; gap: 3px; margin-bottom: .75rem; color: #fbbf24; font-size: 1rem; }
+    .testimonial-card blockquote { font-size: .95rem; color: var(--gray-700); line-height: 1.75; margin-bottom: 1rem; }
+    .testimonial-card cite { font-size: .9rem; font-weight: 600; font-style: normal; display: block; margin-bottom: .25rem; }
+    .testimonial-card small { display: block; font-size: .8rem; color: var(--gray-400); }
+
+    /* CTA */
+    .cta-section { padding: 6rem 1.5rem; text-align: center; background: #fff; }
+    .cta-section h2 { font-size: 2.25rem; font-weight: 700; margin-bottom: 1rem; }
+    .cta-section p { color: var(--gray-500); font-size: 1.1rem; margin-bottom: 2rem; }
+    .cta-btns { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; align-items: center; max-width: 800px; margin: 0 auto; }
+    .cta-btns .btn { min-width: 220px; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--gray-100); padding: 3rem 1.5rem 2rem; text-align: center; font-size: .875rem; color: var(--gray-400); }
+    .footer-logo { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-bottom: .75rem; }
+    .footer-logo-box { width: 24px; height: 24px; background: var(--primary); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: .7rem; font-weight: 700; }
+    .footer-logo span { font-weight: 500; color: var(--gray-600); }
+  </style>
+</head>
+<body data-landing>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">
+      <div class="logo-box">SS</div>
+      <span class="logo-text">ScholarScape</span>
+    </div>
+    <div class="nav-btns">
+      <a href="/auth" class="btn btn-ghost">Sign In</a>
+      <a href="/auth?role=student" class="btn btn-primary">Get Started Free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <span class="badge badge-teal">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+      AI-Powered Research Matching
+    </span>
+    <h1>Find Your Next <br><span>Research Opportunity</span></h1>
+    <p>ScholarScape connects ambitious students with professors and real research projects. AI matches you to opportunities that fit your skills — then you apply in one click.</p>
+    <div class="hero-btns">
+      <a href="/auth?role=student" class="btn btn-primary btn-lg">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        I'm a Student
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="/auth?role=professor" class="btn btn-outline btn-lg">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+        I'm a Professor / Researcher
+      </a>
+    </div>
+    <p class="hero-note">Free to join · No credit card required</p>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div><div class="stat-value">150+</div><div class="stat-label">Research Projects</div></div>
+    <div><div class="stat-value">40+</div><div class="stat-label">Universities</div></div>
+    <div><div class="stat-value">25+</div><div class="stat-label">Fields of Study</div></div>
+    <div><div class="stat-value">12+</div><div class="stat-label">Countries</div></div>
+  </div>
+</div>
+
+<!-- FOR STUDENTS -->
+<section class="section">
+  <div class="section-inner two-col">
+    <div>
+      <span class="badge badge-teal">For Students</span>
+      <h2 class="section-title" style="margin-top:.75rem">Get matched to research projects<br>that actually fit you</h2>
+      <p class="section-sub">Stop sending cold emails. Our AI reads your profile, skills, and interests — then surfaces the research projects where you'd genuinely contribute. Apply with a cover letter and portfolio link in under 2 minutes.</p>
+      <ul class="check-list">
+        <li><span class="check-icon">&#10003;</span> AI recommendations based on your skills &amp; interests</li>
+        <li><span class="check-icon">&#10003;</span> Browse 150+ active research projects</li>
+        <li><span class="check-icon">&#10003;</span> Discover real internships at NSF, NIH, NASA, CERN &amp; more</li>
+        <li><span class="check-icon">&#10003;</span> Track all your applications in one place</li>
+      </ul>
+      <a href="/auth?role=student" class="btn btn-primary">
+        Create Student Profile
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+    </div>
+    <div class="card-stack">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <div>
+          <h4>Browse &amp; Search Projects</h4>
+          <p>Filter by field, location, compensation, and timeline. See full project details before applying.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </div>
+        <div>
+          <h4>Personalized AI Matches</h4>
+          <p>Your dashboard shows a ranked list of projects matched to your exact background — updated in real time.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div>
+          <h4>Built-in Team Chat</h4>
+          <p>Once accepted, collaborate with your research team directly inside ScholarScape.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOR PROFESSORS -->
+<section class="prof-section">
+  <div class="section-inner two-col">
+    <div class="card-stack" style="order:2">
+      <div class="feature-card feature-card-dark">
+        <div class="feature-icon feature-icon-dark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <h4>AI-Screened Applicants</h4>
+          <p>Every application comes with an AI match score so you review the best candidates first.</p>
+        </div>
+      </div>
+      <div class="feature-card feature-card-dark">
+        <div class="feature-icon feature-icon-dark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div>
+          <h4>Instant Email Notifications</h4>
+          <p>Get emailed the moment a student applies. Approve, review, or reject directly from your dashboard.</p>
+        </div>
+      </div>
+      <div class="feature-card feature-card-dark">
+        <div class="feature-icon feature-icon-dark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div>
+          <h4>Shareable Project Links</h4>
+          <p>Share your project on Reddit, Twitter, or your lab website. Students apply instantly.</p>
+        </div>
+      </div>
+    </div>
+    <div style="order:1">
+      <span class="badge badge-white">For Professors &amp; Researchers</span>
+      <h2 class="section-title" style="color:#fff;margin-top:.75rem">Find motivated students<br>for your lab — fast</h2>
+      <p class="section-sub" style="color:rgba(255,255,255,.8)">Post your research project in under 5 minutes. ScholarScape surfaces it to matched students, handles applications, and keeps you in control. No more inbox chaos.</p>
+      <ul class="check-list">
+        <li><span style="color:#99f6e4;flex-shrink:0">&#10003;</span> Post projects with required skills &amp; compensation</li>
+        <li><span style="color:#99f6e4;flex-shrink:0">&#10003;</span> Receive applications with AI match scores</li>
+        <li><span style="color:#99f6e4;flex-shrink:0">&#10003;</span> Approve, reject, or request review with one click</li>
+        <li><span style="color:#99f6e4;flex-shrink:0">&#10003;</span> Invite collaborators via email</li>
+      </ul>
+      <a href="/auth?role=professor" class="btn btn-white">
+        Post a Research Project
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section">
+  <div class="section-inner">
+    <div style="text-align:center;margin-bottom:3.5rem">
+      <h2 class="section-title">How it works</h2>
+      <p style="color:var(--gray-500);margin-top:.75rem;max-width:480px;margin-inline:auto">From sign-up to collaboration in three simple steps</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-connector"></div>
+        <div class="step-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <span class="step-num">1</span>
+        </div>
+        <h3>Create your profile</h3>
+        <p>Tell us your skills, research interests, and academic level. Upload your CV optionally. Takes 3 minutes.</p>
+      </div>
+      <div class="step">
+        <div class="step-connector"></div>
+        <div class="step-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          <span class="step-num">2</span>
+        </div>
+        <h3>Get matched</h3>
+        <p>Our AI instantly surfaces the most relevant projects and internships for your exact background.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6M10 22h4"/></svg>
+          <span class="step-num">3</span>
+        </div>
+        <h3>Apply &amp; collaborate</h3>
+        <p>Submit your cover letter, get notified on decisions, and work with your team in the built-in chat.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials-section">
+  <div class="testimonials">
+    <div class="testimonial-card">
+      <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+      <blockquote>"I found a computational biology lab through ScholarScape in my first week. The AI match was spot on."</blockquote>
+      <cite>Priya M.</cite>
+      <small>Undergraduate · Biology</small>
+    </div>
+    <div class="testimonial-card">
+      <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+      <blockquote>"Posted my NLP project and had 8 strong applicants in two days. The match scores saved me hours of screening."</blockquote>
+      <cite>Prof. James K.</cite>
+      <small>Computer Science</small>
+    </div>
+    <div class="testimonial-card">
+      <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+      <blockquote>"The built-in chat made it so easy to coordinate with my new research team from day one."</blockquote>
+      <cite>Marcus T.</cite>
+      <small>MS Student · Data Science</small>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-section">
+  <h2>Ready to start?</h2>
+  <p>Join hundreds of students and professors already using ScholarScape. It's completely free.</p>
+  <div class="cta-btns">
+    <a href="/auth?role=student" class="btn btn-primary btn-lg">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      Sign up as Student
+    </a>
+    <a href="/auth?role=professor" class="btn btn-outline btn-lg">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+      Sign up as Professor
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="footer-logo-box">SS</div>
+    <span>ScholarScape</span>
+  </div>
+  <p>Connecting researchers and students worldwide.</p>
+</footer>
+
+<script>
+  // Animated stat counters on scroll
+  const animateValue = (el, target) => {
+    const suffix = target.replace(/\d+/, '');
+    const num = parseInt(target);
+    let current = 0;
+    const step = Math.ceil(num / 40);
+    const timer = setInterval(() => {
+      current = Math.min(current + step, num);
+      el.textContent = current + suffix;
+      if (current >= num) clearInterval(timer);
+    }, 30);
+  };
+
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.stat-value').forEach(el => animateValue(el, el.textContent));
+        statsObserver.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+
+  const statsBar = document.querySelector('.stats-bar');
+  if (statsBar) statsObserver.observe(statsBar);
+
+  // Fade-in on scroll
+  const fadeObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.feature-card, .testimonial-card, .step').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity .4s ease, transform .4s ease';
+    fadeObserver.observe(el);
+  });
+</script>
+</body>
+</html>

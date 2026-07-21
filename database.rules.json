@@ -1,0 +1,64 @@
+{
+  "rules": {
+    "users": {
+      ".indexOn": ["username", "email", "role"],
+      "$uid": {
+        ".validate": "newData.hasChildren(['username', 'password', 'email', 'name'])",
+        "username": {
+          ".validate": "newData.isString()"
+        },
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "password": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": true
+        }
+      }
+    },
+    "projects": {
+      ".indexOn": ["ownerId", "status"],
+      "$pid": {
+        ".validate": true
+      }
+    },
+    "opportunities": {
+      ".indexOn": ["studentId", "status"],
+      "$oid": {
+        ".validate": true
+      }
+    },
+    "applications": {
+      ".indexOn": ["projectId", "userId"],
+      "$aid": {
+        ".validate": true
+      }
+    },
+    "messages": {
+      ".indexOn": ["senderId", "receiverId", "projectId"],
+      "$mid": {
+        ".validate": true
+      }
+    },
+    "grants": {
+      ".indexOn": ["region"],
+      "$gid": {
+        ".validate": true
+      }
+    },
+    "notifications": {
+      ".indexOn": ["userId"],
+      "$nid": {
+        ".validate": true
+      }
+    },
+    "$other": {
+      ".validate": true
+    }
+  }
+}

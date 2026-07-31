@@ -4,6 +4,8 @@ import "./landing-page.css";
 
 export default function LandingPage() {
   useEffect(() => {
+    void fetch("/api/hi", { method: "GET", cache: "no-store" }).catch(() => undefined);
+
     const animateValue = (el: HTMLElement, target: string) => {
       const suffix = target.replace(/\d+/g, "");
       const num = parseInt(target, 10) || 0;

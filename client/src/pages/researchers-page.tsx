@@ -50,7 +50,7 @@ export default function ResearchersPage() {
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="researcher">Researcher</SelectItem>
                 <SelectItem value="professor">Professor</SelectItem>

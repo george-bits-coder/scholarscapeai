@@ -51,7 +51,7 @@ export default function GrantsPage() {
                 <SelectValue placeholder="All Regions" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Regions</SelectItem>
+                <SelectItem value="all">All Regions</SelectItem>
                 {uniqueRegions.map(region => (
                   <SelectItem key={region} value={region || ""}>
                     {region || "Unknown"}

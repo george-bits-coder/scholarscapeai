@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ResearchCollab API Documentation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --warn: #f59e0b;
+        --danger: #f87171;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+        background: linear-gradient(135deg, #020617, #0f172a 45%, #111827);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      main { max-width: 1200px; margin: 0 auto; padding: 32px 20px 80px; }
+      header {
+        background: rgba(17, 24, 39, 0.85);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+      }
+      h1, h2, h3 { margin-top: 0; }
+      .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(56, 189, 248, 0.15);
+        color: var(--accent);
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+      }
+      .grid { display: grid; gap: 16px; }
+      .card {
+        background: rgba(17, 24, 39, 0.95);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 18px 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      }
+      .endpoint {
+        border-top: 1px solid rgba(255,255,255,0.08);
+        padding-top: 14px;
+        margin-top: 14px;
+      }
+      .endpoint:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+      .method {
+        display: inline-block;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-right: 8px;
+        text-transform: uppercase;
+      }
+      .get { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; }
+      .post { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+      .put { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+      .delete { background: rgba(248, 113, 113, 0.18); color: #fda4af; }
+      .path { font-family: Consolas, monospace; font-size: 1rem; color: #f8fafc; }
+      .meta { color: var(--muted); font-size: 0.95rem; margin-top: 6px; }
+      .pill {
+        display: inline-block;
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border-radius: 999px;
+        margin-right: 8px;
+        margin-top: 8px;
+      }
+      .auth { background: rgba(248, 113, 113, 0.12); color: #fecaca; }
+      .public { background: rgba(34, 197, 94, 0.12); color: #bbf7d0; }
+      code, pre {
+        font-family: Consolas, monospace;
+        background: rgba(255,255,255,0.06);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+      pre { padding: 12px; overflow-x: auto; }
+      ul { margin: 8px 0 0 18px; }
+      footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
+      @media (max-width: 768px) {
+        main { padding: 20px 14px 60px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="badge">REST API Reference</div>
+        <h1>ResearchCollab API Documentation</h1>
+        <p>This page documents the backend endpoints exposed by the server for authentication, projects, applications, messaging, recommendations, storage, and more.</p>
+        <p><strong>Base URL:</strong> <code>http://localhost:8080</code> (or your deployed host)</p>
+      </header>
+
+      <section class="card">
+        <h2>Authentication</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/hi</span></div>
+          <div class="meta">Health check endpoint.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/register</span></div>
+          <div class="meta">Create a new user account.</div>
+          <span class="pill public">Public</span>
+          <pre>{
+  "username": "student1",
+  "password": "secret123",
+  "email": "student@example.com",
+  "name": "Jane Doe",
+  "role": "student"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/login</span></div>
+          <div class="meta">Authenticate a user and create a session.</div>
+          <span class="pill public">Public</span>
+          <pre>{
+  "username": "student1",
+  "password": "secret123"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/logout</span></div>
+          <div class="meta">Log out the current user.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/user</span></div>
+          <div class="meta">Fetch the authenticated user profile.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Projects</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/projects</span></div>
+          <div class="meta">List projects. Query parameters: <code>status</code>, <code>owner</code>.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/projects/:id</span></div>
+          <div class="meta">Fetch a specific project and its related applications.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/projects</span></div>
+          <div class="meta">Create a new project. Requires ownership and authentication.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "title": "AI Research Project",
+  "description": "Investigating LLM-based workflows",
+  "requiredSkills": ["Python", "NLP"],
+  "compensation": 500,
+  "timeline": "Summer 2026",
+  "status": "active",
+  "remote": true,
+  "location": "Remote"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/projects/:id</span></div>
+          <div class="meta">Update an existing project. Only the owner may edit it.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method delete">DELETE</span><span class="path">/api/projects/:id</span></div>
+          <div class="meta">Delete a project. Fails if the project already has applications.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Opportunities</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/opportunities</span></div>
+          <div class="meta">List opportunities. Query parameters: <code>studentId</code>, <code>status</code>.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/opportunities/:id</span></div>
+          <div class="meta">Fetch one opportunity by ID.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/opportunities</span></div>
+          <div class="meta">Create an opportunity for the authenticated student.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "title": "Research Assistant",
+  "description": "Looking for a summer placement",
+  "skills": ["Python", "Data Science"],
+  "interests": ["ML", "Healthcare"],
+  "availableHours": 20,
+  "preferredCompensation": 1000,
+  "availability": "Summer 2026",
+  "remote": true,
+  "preferredLocation": "Remote"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/opportunities/:id</span></div>
+          <div class="meta">Update an opportunity. Only the owner may edit it.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method delete">DELETE</span><span class="path">/api/opportunities/:id</span></div>
+          <div class="meta">Delete an opportunity. Only the owner may delete it.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Applications</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/applications</span></div>
+          <div class="meta">Get applications for the current user, or received applications for project owners. Query parameters: <code>projectId</code>, <code>type=received</code>.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/applications</span></div>
+          <div class="meta">Submit a new application to a project.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "projectId": "<project-id>",
+  "coverLetter": "I am excited to contribute to this project.",
+  "proposalUrl": "https://example.com/proposal.pdf",
+  "deadline": "2026-08-30"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/applications/:id/status</span></div>
+          <div class="meta">Update application status to <code>submitted</code>, <code>under_review</code>, <code>approved</code>, or <code>rejected</code>.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "status": "approved",
+  "reviewNotes": "Strong fit for the project"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/applications/:id</span></div>
+          <div class="meta">Update application details. Only the project owner may update it.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/applications/:id/comments</span></div>
+          <div class="meta">Fetch comments for an application. Accessible to the applicant or project owner.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/applications/:id/comments</span></div>
+          <div class="meta">Create a new application comment. Internal comments are only allowed by the project owner.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "content": "Looking forward to working together",
+  "isInternal": false
+}</pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Messages</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/messages</span></div>
+          <div class="meta">Fetch messages for the authenticated user. Optional query: <code>projectId</code>.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/messages</span></div>
+          <div class="meta">Send a direct message.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "receiverId": "<user-id>",
+  "content": "Hello, are you available this week?",
+  "projectId": "<project-id>"
+}</pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Grants and Notifications</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/grants</span></div>
+          <div class="meta">List grants. Query parameters: <code>region</code>, <code>tags</code>.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/notifications</span></div>
+          <div class="meta">Fetch notifications for the current user.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/notifications/:id/read</span></div>
+          <div class="meta">Mark a notification as read.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Researchers and Recommendations</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/researchers</span></div>
+          <div class="meta">List public researcher profiles. Optional query: <code>role</code>.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/researchers/:id</span></div>
+          <div class="meta">Fetch one researcher profile by ID.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/recommendations/students/:projectId</span></div>
+          <div class="meta">Get AI-based student recommendations for a project.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/recommendations/projects</span></div>
+          <div class="meta">Get project recommendations for the current user.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Embeddings and Object Storage</h2>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/embeddings/update-profile</span></div>
+          <div class="meta">Refresh the authenticated user's profile embedding.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/embeddings/update-project/:id</span></div>
+          <div class="meta">Refresh the embedding for a project owned by the current user.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/objects/upload</span></div>
+          <div class="meta">Get an upload URL for object storage.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/objects/:objectPath(*)</span></div>
+          <div class="meta">Serve private objects such as CVs and uploaded files.</div>
+          <span class="pill public">Public</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/users/cv</span></div>
+          <div class="meta">Update the authenticated user's CV URL.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "cvUrl": "/objects/user-cv.pdf"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/projects/:id/flyer</span></div>
+          <div class="meta">Update a project's flyer URL. Only the owner may do this.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "flyerUrl": "/objects/project-flyer.png"
+}</pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Chat and Sharing</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/projects/:id/chat</span></div>
+          <div class="meta">Get the chat for a project. Only chat members may access it.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/chats/:id/messages</span></div>
+          <div class="meta">List messages in a chat room.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/chats/:id/messages</span></div>
+          <div class="meta">Send a message to a chat room.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "content": "Hello team"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/chats/:id/members</span></div>
+          <div class="meta">List chat members.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/projects/:id/matching-users</span></div>
+          <div class="meta">List users ranked by compatibility with a project.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method post">POST</span><span class="path">/api/projects/:id/share</span></div>
+          <div class="meta">Share a project with one or more users or email addresses.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "userIds": ["<user-id-1>"],
+  "emails": ["person@example.com"],
+  "message": "Check out this exciting project"
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/project-shares</span></div>
+          <div class="meta">Retrieve project shared-with-you records.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/project-shares/:id/status</span></div>
+          <div class="meta">Update the status of a project share to <code>pending</code>, <code>viewed</code>, or <code>applied</code>.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "status": "viewed"
+}</pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>User Interests</h2>
+
+        <div class="endpoint">
+          <div><span class="method get">GET</span><span class="path">/api/user-interests</span></div>
+          <div class="meta">Fetch the authenticated user's stored interests.</div>
+          <span class="pill auth">Authenticated</span>
+        </div>
+
+        <div class="endpoint">
+          <div><span class="method put">PUT</span><span class="path">/api/user-interests</span></div>
+          <div class="meta">Save keywords and research areas for the current user.</div>
+          <span class="pill auth">Authenticated</span>
+          <pre>{
+  "keywords": ["AI", "HCI"],
+  "researchAreas": ["Machine Learning", "Human-Computer Interaction"]
+}</pre>
+        </div>
+      </section>
+
+      <footer>
+        Generated for the ResearchCollab backend. Open this file in a browser or serve it through your preferred static host.
+      </footer>
+    </main>
+  </body>
+</html>

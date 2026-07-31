@@ -1,13 +1,24 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect } from "wouter";
+import { ComponentType, useEffect } from "react";
 
 export function ProtectedRoute({
   component: Component,
 }: {
-  component: () => React.JSX.Element;
+  component: ComponentType;
 }) {
   const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    console.log("🔒 ProtectedRoute Debug:");
+    console.log("  - isLoading:", isLoading);
+    console.log("  - user:", user);
+    console.log("  - user role:", user?.role);
+    console.log("  - user id:", user?.id);
+    console.log("  - Component:", Component.name);
+    console.log("  - Full user object:", JSON.stringify(user, null, 2));
+  }, [isLoading, user]);
 
   if (isLoading) {
     return (
@@ -18,8 +29,10 @@ export function ProtectedRoute({
   }
 
   if (!user) {
+    console.log("❌ No user found, redirecting to auth");
     return <Redirect to="/auth" />;
   }
 
+  console.log("✅ User authenticated, rendering component");
   return <Component />;
 }

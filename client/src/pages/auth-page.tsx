@@ -420,6 +420,16 @@ export default function AuthPage() {
           <h1 className="text-3xl font-bold mb-4">
             Connecting Verified Researchers Worldwide
           </h1>
+                    {loginMutation.isError && (
+                      <div className="text-sm text-red-600" role="alert">
+                        {loginMutation.error?.message}
+                      </div>
+                    )}
+                    {registerMutation.isError && (
+                      <div className="text-sm text-red-600" role="alert">
+                        {registerMutation.error?.message}
+                      </div>
+                    )}
           <p className="text-lg text-blue-100 mb-8">
             Join a global community of researchers collaborating on groundbreaking projects
           </p>

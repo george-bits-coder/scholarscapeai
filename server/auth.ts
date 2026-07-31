@@ -2,10 +2,9 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { hashPassword, comparePasswords } from "./password";
 
 declare global {
   namespace Express {
@@ -13,51 +12,23 @@ declare global {
   }
 }
 
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-async function comparePasswords(supplied: string, stored: string) {
-  try {
-    const [hashed, salt] = stored.split(".");
-    if (!hashed || !salt) {
-      console.log("Password format error: missing hash or salt");
-      return false;
-    }
-    
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    
-    // Ensure buffers are the same length before comparison
-    if (hashedBuf.length !== suppliedBuf.length) {
-      console.log(`Buffer length mismatch: stored=${hashedBuf.length}, supplied=${suppliedBuf.length}`);
-      return false;
-    }
-    
-    const result = timingSafeEqual(hashedBuf, suppliedBuf);
-    console.log(`Password comparison result: ${result}`);
-    return result;
-  } catch (error) {
-    console.error("Error comparing passwords:", error);
-    return false;
-  }
-}
-
 export function setupAuth(app: Express) {
+  const isProduction = app.get("env") === "production";
+  const sessionSecret = process.env.SESSION_SECRET || "dev-secret";
+  if (!process.env.SESSION_SECRET && isProduction) {
+    console.warn("WARNING: SESSION_SECRET is not set in production environment");
+  }
+
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: isProduction,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax', // Important for session persistence
+      sameSite: isProduction ? "none" as const : "lax" as const,
     },
   };
 
@@ -126,6 +97,8 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+
+    console.log("inside login")
     passport.authenticate("local", (err: unknown, user: Express.User | false | undefined, info: any) => {
       if (err) {
         return next(err);

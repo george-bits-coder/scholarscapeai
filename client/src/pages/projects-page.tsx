@@ -61,7 +61,7 @@ export default function ProjectsPage() {
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="in_review">In Review</SelectItem>
                 <SelectItem value="planning">Planning</SelectItem>

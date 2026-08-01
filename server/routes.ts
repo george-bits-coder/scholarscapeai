@@ -1001,7 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create shares for each user
       const shares = await Promise.all(
-        userIds.map(userId => 
+        userIds.map((userId: string) =>
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1014,7 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(async userId => {
+        userIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1051,7 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send emails to external email addresses
       await Promise.all(
-        emails.map(async email => {
+        emails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
@@ -1155,6 +1155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const interests = await storage.updateUserInterests(req.user!.id, {
+        userId: req.user!.id,
         keywords,
         researchAreas
       });

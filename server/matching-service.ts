@@ -127,6 +127,28 @@ export class MatchingService {
     return parts.join(". ");
   }
 
+  async calculateUserProjectCompatibility(userId: string, projectId: string): Promise<number> {
+    const user = await storage.getUser(userId);
+    if (!user) throw new Error("User not found");
+
+    const project = await storage.getProject(projectId);
+    if (!project) throw new Error("Project not found");
+
+    let userEmbedding = user.profileEmbedding as number[] | null;
+    if (!userEmbedding) {
+      userEmbedding = await this.generateUserEmbedding(user);
+      await storage.updateUser(userId, { profileEmbedding: userEmbedding });
+    }
+
+    let projectEmbedding = project.projectEmbedding as number[] | null;
+    if (!projectEmbedding) {
+      projectEmbedding = await this.generateProjectEmbedding(project);
+      await storage.updateProject(projectId, { projectEmbedding });
+    }
+
+    return this.calculateCosineSimilarity(userEmbedding, projectEmbedding);
+  }
+
   // Find best project matches for a student
   async findProjectMatchesForStudent(studentId: string, limit: number = 10): Promise<Array<{project: Project; matchScore: number; owner?: User}>> {
     const student = await storage.getUser(studentId);

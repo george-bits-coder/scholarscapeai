@@ -51,9 +51,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/projects", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+    // if (!req.isAuthenticated()) {
+    //   return res.status(401).json({ error: "Authentication required" });
+    // }
 
     try {
       const projectData = insertProjectSchema.parse({
@@ -65,49 +65,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(project);
     } catch (error) {
       res.status(400).json({ error: "Invalid project data" });
-    }
-  });
-
-  app.post("/api/events", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    const { title, description, date, time, platform, link } = req.body;
-    if (!title || !date || !time || !platform || !link) {
-      return res.status(400).json({ error: "Missing required event fields" });
-    }
-
-    try {
-      const event = await storage.createLiveEvent({
-        title,
-        description,
-        date,
-        time,
-        platform,
-        link,
-        ownerId: req.user!.id,
-      });
-      res.status(201).json(event);
-    } catch (error) {
-      console.error("Error creating live event:", error);
-      res.status(500).json({ error: "Unable to create live event" });
-    }
-  });
-
-  app.get("/api/events", async (req, res) => {
-    try {
-      const events = await storage.getLiveEvents();
-      const eventsWithOwners = await Promise.all(
-        events.map(async (event) => {
-          const owner = await storage.getUser(event.ownerId);
-          return { ...event, owner };
-        }),
-      );
-      res.json(eventsWithOwners);
-    } catch (error) {
-      console.error("Error fetching live events:", error);
-      res.status(500).json({ error: "Unable to load live events" });
     }
   });
 

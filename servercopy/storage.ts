@@ -26,30 +26,6 @@
 } from "@shared/schema";
 import { FirebaseStorage } from "./firebaseStorage";
 
-export interface LiveEvent {
-  id: string;
-  title: string;
-  description?: string;
-  date: string;
-  time: string;
-  platform: string;
-  link: string;
-  ownerId: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface InsertLiveEvent {
-  title: string;
-  description?: string;
-  date: string;
-  time: string;
-  platform: string;
-  link: string;
-  ownerId: string;
-  status?: string;
-}
-
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -62,10 +38,6 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project>;
   deleteProject(id: string): Promise<void>;
-
-  getLiveEvent(id: string): Promise<LiveEvent | undefined>;
-  getLiveEvents(filters?: { ownerId?: string; status?: string }): Promise<LiveEvent[]>;
-  createLiveEvent(event: InsertLiveEvent): Promise<LiveEvent>;
 
   getOpportunity(id: string): Promise<Opportunity | undefined>;
   getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]>;

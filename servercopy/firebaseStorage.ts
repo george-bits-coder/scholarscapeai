@@ -140,31 +140,6 @@ export class FirebaseStorage implements IStorage {
     return this.saveItem<Project>("projects", id, project);
   }
 
-  async getLiveEvent(id: string): Promise<LiveEvent | undefined> {
-    return this.getItem<LiveEvent>("liveEvents", id);
-  }
-
-  async getLiveEvents(filters?: { ownerId?: string; status?: string }): Promise<LiveEvent[]> {
-    let events = await this.listItems<LiveEvent>("liveEvents");
-    if (filters?.ownerId) {
-      events = events.filter((event) => event.ownerId === filters.ownerId);
-    }
-    if (filters?.status) {
-      events = events.filter((event) => (event as any).status === filters.status);
-    }
-    return events.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  }
-
-  async createLiveEvent(insertEvent: InsertLiveEvent): Promise<LiveEvent> {
-    const id = insertEvent.id || createFirebaseId();
-    const event: any = {
-      ...insertEvent,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    return this.saveItem<LiveEvent>("liveEvents", id, event);
-  }
-
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     const existing = await this.getProject(id);
     if (!existing) throw new Error("Project not found");

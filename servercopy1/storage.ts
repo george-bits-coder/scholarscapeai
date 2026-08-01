@@ -24,18 +24,6 @@
   UserInterests,
   InsertUserInterests,
 } from "@shared/schema";
-
-export interface Activity {
-  id: string;
-  message: string;
-  actorId?: string;
-  createdAt?: string;
-}
-
-export interface InsertActivity {
-  message: string;
-  actorId?: string;
-}
 import { FirebaseStorage } from "./firebaseStorage";
 
 export interface LiveEvent {
@@ -78,11 +66,6 @@ export interface IStorage {
   getLiveEvent(id: string): Promise<LiveEvent | undefined>;
   getLiveEvents(filters?: { ownerId?: string; status?: string }): Promise<LiveEvent[]>;
   createLiveEvent(event: InsertLiveEvent): Promise<LiveEvent>;
-  updateLiveEvent(id: string, updates: Partial<LiveEvent>): Promise<LiveEvent>;
-  deleteLiveEvent(id: string): Promise<void>;
-
-  getRecentActivities(limit?: number): Promise<Activity[]>;
-  createActivity(activity: InsertActivity): Promise<Activity>;
 
   getOpportunity(id: string): Promise<Opportunity | undefined>;
   getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]>;
@@ -107,12 +90,6 @@ export interface IStorage {
   markNotificationAsRead(id: string): Promise<void>;
 
   getUsersByRole(role: string): Promise<User[]>;
-  // Connections
-  createConnectionRequest(request: { fromUserId: string; toUserId: string; message?: string }): Promise<any>;
-  getConnectionRequest(id: string): Promise<any | undefined>;
-  updateConnectionRequest(id: string, updates: Partial<any>): Promise<any>;
-  getConnectionsForUser(userId: string): Promise<any[]>;
-  getConnectionRequestsForUser(userId: string): Promise<any[]>;
 
   getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]>;
   getApplicationsForUser(userId: string): Promise<(Application & { user: User; project: Project })[]>;

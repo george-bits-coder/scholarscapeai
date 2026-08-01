@@ -50,21 +50,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get applications for a specific project (owners only)
-  app.get('/api/projects/:id/applications', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const project = await storage.getProject(req.params.id);
-      if (!project) return res.status(404).json({ error: 'Project not found' });
-      if (project.ownerId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
-      const applications = await storage.getApplicationsForProject(req.params.id);
-      res.json(applications);
-    } catch (error) {
-      console.error('Error fetching project applications:', error);
-      res.status(500).json({ error: 'Failed to fetch project applications' });
-    }
-  });
-
   app.post("/api/projects", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -77,14 +62,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const project = await storage.createProject(projectData);
-      try {
-        await storage.createActivity({
-          message: `Created project "${project.title}"`,
-          actorId: req.user!.id,
-        });
-      } catch (activityError) {
-        console.error("Failed to save project activity:", activityError);
-      }
       res.status(201).json(project);
     } catch (error) {
       res.status(400).json({ error: "Invalid project data" });
@@ -111,14 +88,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         link,
         ownerId: req.user!.id,
       });
-      try {
-        await storage.createActivity({
-          message: `Scheduled live event "${event.title}"`,
-          actorId: req.user!.id,
-        });
-      } catch (activityError) {
-        console.error("Failed to save event activity:", activityError);
-      }
       res.status(201).json(event);
     } catch (error) {
       console.error("Error creating live event:", error);
@@ -139,81 +108,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching live events:", error);
       res.status(500).json({ error: "Unable to load live events" });
-    }
-  });
-
-  app.put("/api/events/:id", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      if (event.ownerId !== req.user!.id) {
-        return res.status(403).json({ error: "Not authorized to edit this event" });
-      }
-
-      const updates = req.body;
-      const updated = await storage.updateLiveEvent(req.params.id, updates as any);
-      res.json(updated);
-    } catch (error) {
-      console.error('Error updating event:', error);
-      res.status(500).json({ error: 'Failed to update event' });
-    }
-  });
-
-  app.delete("/api/events/:id", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      if (event.ownerId !== req.user!.id) {
-        return res.status(403).json({ error: "Not authorized to delete this event" });
-      }
-
-      await storage.deleteLiveEvent(req.params.id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Error deleting event:', error);
-      res.status(500).json({ error: 'Failed to delete event' });
-    }
-  });
-
-  app.get("/api/activities", async (req, res) => {
-    try {
-      const activities = await storage.getRecentActivities(10);
-      res.json(activities);
-    } catch (error) {
-      console.error("Error fetching recent activities:", error);
-      res.status(500).json({ error: "Unable to load recent activities" });
-    }
-  });
-
-  app.post("/api/activities", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    const { message } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: "Activity message is required" });
-    }
-
-    try {
-      const activity = await storage.createActivity({
-        message,
-        actorId: req.user!.id,
-      });
-      res.status(201).json(activity);
-    } catch (error) {
-      console.error("Error creating activity:", error);
-      res.status(500).json({ error: "Unable to create activity" });
     }
   });
 
@@ -691,39 +585,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Conversation thread between current user and another user
-  app.get('/api/messages/thread/:otherId', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const otherId = req.params.otherId;
-      const allMessages = await storage.getMessages({});
-      const thread = allMessages.filter((m) =>
-        (m.senderId === req.user!.id && m.receiverId === otherId) ||
-        (m.senderId === otherId && m.receiverId === req.user!.id)
-      );
-
-      const threadWithSenders = await Promise.all(
-        thread.map(async (message) => {
-          const sender = await storage.getUser(message.senderId);
-          return { ...message, sender };
-        })
-      );
-
-      // sort by createdAt ascending
-      const getTimestamp = (value: unknown) => {
-        if (value instanceof Date) return value.toISOString();
-        if (typeof value === 'string') return value;
-        return '';
-      };
-
-      threadWithSenders.sort((a, b) => getTimestamp(a.createdAt).localeCompare(getTimestamp(b.createdAt)));
-      res.json(threadWithSenders);
-    } catch (error) {
-      console.error('Error fetching conversation thread:', error);
-      res.status(500).json({ error: 'Failed to fetch conversation' });
-    }
-  });
-
   // Grants routes
   app.get("/api/grants", async (req, res) => {
     try {
@@ -804,69 +665,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(publicUser);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch researcher" });
-    }
-  });
-
-  // Connections (follow/connect) routes
-  app.post('/api/connections', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const { toUserId, message } = req.body;
-      if (!toUserId) return res.status(400).json({ error: 'toUserId is required' });
-      if (toUserId === req.user!.id) return res.status(400).json({ error: 'Cannot connect to yourself' });
-      const connection = await storage.createConnectionRequest({ fromUserId: req.user!.id, toUserId, message });
-      res.status(201).json(connection);
-    } catch (error) {
-      console.error('Error creating connection request:', error);
-      res.status(500).json({ error: 'Failed to create connection request' });
-    }
-  });
-
-  app.get('/api/connections', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const connections = await storage.getConnectionsForUser(req.user!.id);
-      // enrich with user objects
-      const users = await storage.getUsersByRole('');
-      res.json(connections);
-    } catch (error) {
-      console.error('Error fetching connections:', error);
-      res.status(500).json({ error: 'Failed to fetch connections' });
-    }
-  });
-
-  app.get('/api/connections/requests', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const requests = await storage.getConnectionRequestsForUser(req.user!.id);
-      res.json(requests);
-    } catch (error) {
-      console.error('Error fetching connection requests:', error);
-      res.status(500).json({ error: 'Failed to fetch connection requests' });
-    }
-  });
-
-  app.put('/api/connections/:id', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const existing = await storage.getConnectionRequest(req.params.id);
-      if (!existing) return res.status(404).json({ error: 'Connection request not found' });
-
-      const { status } = req.body;
-      if (!['accepted', 'rejected', 'cancelled'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-
-      // Only recipient can accept/reject; sender can cancel
-      if (status === 'accepted' || status === 'rejected') {
-        if (existing.toUserId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
-      } else if (status === 'cancelled') {
-        if (existing.fromUserId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
-      }
-
-      const updated = await storage.updateConnectionRequest(req.params.id, { status });
-      res.json(updated);
-    } catch (error) {
-      console.error('Error updating connection request:', error);
-      res.status(500).json({ error: 'Failed to update connection request' });
     }
   });
 
@@ -1023,36 +821,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update event poster endpoint
-  app.put("/api/events/:id/poster", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const { posterUrl } = req.body;
-      if (!posterUrl) {
-        return res.status(400).json({ error: "Poster URL is required" });
-      }
-
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      if (event.ownerId !== req.user!.id) {
-        return res.status(403).json({ error: "Not authorized to update this event" });
-      }
-
-      const objectStorageService = new ObjectStorageService();
-      const normalizedPath = objectStorageService.normalizeObjectEntityPath(posterUrl);
-
-      await storage.updateLiveEvent(req.params.id, { posterUrl: normalizedPath } as any);
-      res.json({ success: true, posterUrl: normalizedPath });
-    } catch (error) {
-      console.error("Error updating event poster:", error);
-      res.status(500).json({ error: "Failed to update event poster" });
-    }
-  });
-
   // Project chat routes
   app.get("/api/projects/:id/chat", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1178,16 +946,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to access this project" });
       }
 
-      const usersWithScores = (await storage.getMatchingUsers(projectId, 50))
-        .filter((user) => user.id !== req.user!.id)
-        .map((user) => {
-          const { password, ...publicUser } = user;
-          return {
-            ...publicUser,
-            matchScore: Math.round(user.matchScore)
-          };
+      // Get all users except the project owner, with compatibility scores
+      const allUsers = await storage.getUsersByRole('student');
+      const professors = await storage.getUsersByRole('professor');
+      const allPotentialUsers = [...allUsers, ...professors].filter(user => user.id !== req.user!.id);
+      
+      // Calculate match scores for each user
+      const usersWithScores = await Promise.all(
+        allPotentialUsers.map(async (user) => {
+          try {
+            const matchScore = await matchingService.calculateUserProjectCompatibility(user.id, projectId);
+            const { password, ...publicUser } = user;
+            return {
+              ...publicUser,
+              matchScore: Math.round(matchScore * 100)
+            };
+          } catch (error) {
+            const { password, ...publicUser } = user;
+            return {
+              ...publicUser,
+              matchScore: 0
+            };
+          }
         })
-        .sort((a, b) => b.matchScore - a.matchScore);
+      );
+
+      // Sort by match score (highest first)
+      usersWithScores.sort((a, b) => b.matchScore - a.matchScore);
       
       res.json(usersWithScores);
     } catch (error) {
@@ -1204,10 +989,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectId = req.params.id;
       const { userIds = [], emails = [], message } = req.body;
-      const requestedUserIds = Array.isArray(userIds) ? userIds as string[] : [];
-      const requestedEmails = Array.isArray(emails) ? emails as string[] : [];
       
-      if (requestedUserIds.length === 0 && requestedEmails.length === 0) {
+      if ((!userIds || userIds.length === 0) && (!emails || emails.length === 0)) {
         return res.status(400).json({ error: "At least one user ID or email is required" });
       }
 
@@ -1218,7 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create shares for each user
       const shares = await Promise.all(
-        requestedUserIds.map((userId: string) => 
+        userIds.map((userId: string) =>
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1231,7 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        requestedUserIds.map(async (userId: string) => {
+        userIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1268,7 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send emails to external email addresses
       await Promise.all(
-        requestedEmails.map(async (email: string) => {
+        emails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`

@@ -3,7 +3,6 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import { storage } from "./storage";
-import { matchingService } from "./matching-service";
 import { User as SelectUser } from "@shared/schema";
 import { hashPassword, comparePasswords } from "./password";
 
@@ -126,35 +125,5 @@ export function setupAuth(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
-  });
-
-  app.put("/api/user", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentication required" });
-
-    try {
-      const allowedFields = [
-        'fullName', 'name', 'affiliation', 'bio', 'googleScholarUrl', 'personalWebsite',
-        'skills', 'publications', 'orcid', 'cvUrl', 'institution', 'organization'
-      ];
-
-      const updates: any = {};
-      for (const key of Object.keys(req.body || {})) {
-        if (allowedFields.includes(key)) updates[key] = req.body[key];
-      }
-
-      const updated = await storage.updateUser(req.user!.id, updates);
-
-      // Try to update matching embeddings in background (best-effort)
-      try {
-        await matchingService.updateUserEmbedding(req.user!.id);
-      } catch (e) {
-        console.error('Failed to update user embedding after profile update', e);
-      }
-
-      res.json(updated);
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      res.status(500).json({ error: 'Failed to update user profile' });
-    }
   });
 }

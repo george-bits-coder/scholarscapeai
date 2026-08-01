@@ -165,40 +165,6 @@ export class FirebaseStorage implements IStorage {
     return this.saveItem<LiveEvent>("liveEvents", id, event);
   }
 
-  async updateLiveEvent(id: string, updates: Partial<LiveEvent>): Promise<LiveEvent> {
-    const existing = await this.getLiveEvent(id);
-    if (!existing) throw new Error("Live event not found");
-    const updated = {
-      ...existing,
-      ...updates,
-      updatedAt: nowIso(),
-    };
-    await setValue(`liveEvents/${id}`, updated);
-    return updated;
-  }
-
-  async deleteLiveEvent(id: string): Promise<void> {
-    const existing = await this.getLiveEvent(id);
-    if (!existing) throw new Error("Live event not found");
-    await this.removeItem("liveEvents", id);
-  }
-
-  async getRecentActivities(limit = 10): Promise<Activity[]> {
-    const activities = await this.listItems<Activity>("activities");
-    return activities
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
-      .slice(0, limit);
-  }
-
-  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
-    const id = insertActivity.id || createFirebaseId();
-    const activity: any = {
-      ...insertActivity,
-      createdAt: nowIso(),
-    };
-    return this.saveItem<Activity>("activities", id, activity);
-  }
-
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     const existing = await this.getProject(id);
     if (!existing) throw new Error("Project not found");
@@ -560,35 +526,6 @@ export class FirebaseStorage implements IStorage {
 
   async getUserInterests(userId: string): Promise<UserInterests | undefined> {
     return this.queryItemByChild<UserInterests>("userInterests", "userId", userId);
-  }
-
-  // Connections
-  async createConnectionRequest(request: { fromUserId: string; toUserId: string; message?: string }): Promise<any> {
-    const id = createFirebaseId();
-    const record: any = { ...request, status: 'pending', createdAt: nowIso() };
-    return this.saveItem<any>('connections', id, record);
-  }
-
-  async getConnectionRequest(id: string): Promise<any | undefined> {
-    return this.getItem<any>('connections', id);
-  }
-
-  async updateConnectionRequest(id: string, updates: Partial<any>): Promise<any> {
-    const existing = await this.getConnectionRequest(id);
-    if (!existing) throw new Error('Connection request not found');
-    const updated = { ...existing, ...updates, updatedAt: nowIso() };
-    await setValue(`connections/${id}`, updated);
-    return updated;
-  }
-
-  async getConnectionsForUser(userId: string): Promise<any[]> {
-    const all = await this.listItems<any>('connections');
-    return all.filter((c) => (c.fromUserId === userId || c.toUserId === userId) && c.status === 'accepted');
-  }
-
-  async getConnectionRequestsForUser(userId: string): Promise<any[]> {
-    const all = await this.listItems<any>('connections');
-    return all.filter((c) => c.toUserId === userId && c.status === 'pending');
   }
 
   async updateUserInterests(userId: string, interests: InsertUserInterests): Promise<UserInterests> {

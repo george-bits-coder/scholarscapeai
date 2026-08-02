@@ -47,7 +47,6 @@ export interface LiveEvent {
   platform: string;
   link: string;
   ownerId: string;
-  shareUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -61,7 +60,6 @@ export interface InsertLiveEvent {
   link: string;
   ownerId: string;
   status?: string;
-  shareUrl?: string;
 }
 
 export interface IStorage {
@@ -82,8 +80,6 @@ export interface IStorage {
   createLiveEvent(event: InsertLiveEvent): Promise<LiveEvent>;
   updateLiveEvent(id: string, updates: Partial<LiveEvent>): Promise<LiveEvent>;
   deleteLiveEvent(id: string): Promise<void>;
-  getLiveEventRegistrations(eventId: string): Promise<string[]>;
-  registerForLiveEvent(eventId: string, userId: string): Promise<{ attendeeCount: number; registered: boolean; attendees: string[] }>;
 
   getRecentActivities(limit?: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;

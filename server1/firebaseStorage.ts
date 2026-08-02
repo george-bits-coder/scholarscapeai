@@ -183,22 +183,6 @@ export class FirebaseStorage implements IStorage {
     await this.removeItem("liveEvents", id);
   }
 
-  async getLiveEventRegistrations(eventId: string): Promise<string[]> {
-    const registrations = await getValue<string[]>(`liveEventRegistrations/${eventId}`);
-    return Array.isArray(registrations) ? registrations : [];
-  }
-
-  async registerForLiveEvent(eventId: string, userId: string): Promise<{ attendeeCount: number; registered: boolean; attendees: string[] }> {
-    const existing = await this.getLiveEventRegistrations(eventId);
-    if (existing.includes(userId)) {
-      return { attendeeCount: existing.length, registered: true, attendees: existing };
-    }
-
-    const attendees = [...existing, userId];
-    await setValue(`liveEventRegistrations/${eventId}`, attendees);
-    return { attendeeCount: attendees.length, registered: false, attendees };
-  }
-
   async getRecentActivities(limit = 10): Promise<Activity[]> {
     const activities = await this.listItems<Activity>("activities");
     return activities

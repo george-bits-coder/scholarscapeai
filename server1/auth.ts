@@ -116,26 +116,11 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res) => {
-    const sidName = "connect.sid";
-
-    try {
-      if (req.session) {
-        req.session.destroy((destroyErr) => {
-          if (destroyErr) {
-            console.error("Error destroying session during logout:", destroyErr);
-          }
-          res.clearCookie(sidName, { path: "/" });
-          res.json({ success: true });
-        });
-        return;
-      }
-    } catch (error) {
-      console.error("Logout session cleanup failed:", error);
-    }
-
-    res.clearCookie(sidName, { path: "/" });
-    res.json({ success: true });
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.sendStatus(200);
+    });
   });
 
   app.get("/api/user", (req, res) => {

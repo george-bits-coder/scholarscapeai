@@ -111,18 +111,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         link,
         ownerId: req.user!.id,
       });
-      const eventWithShareUrl = await storage.updateLiveEvent(event.id, {
-        shareUrl: `/events/${event.id}`,
-      } as any);
       try {
         await storage.createActivity({
-          message: `Scheduled live event "${eventWithShareUrl.title}"`,
+          message: `Scheduled live event "${event.title}"`,
           actorId: req.user!.id,
         });
       } catch (activityError) {
         console.error("Failed to save event activity:", activityError);
       }
-      res.status(201).json(eventWithShareUrl);
+      res.status(201).json(event);
     } catch (error) {
       console.error("Error creating live event:", error);
       res.status(500).json({ error: "Unable to create live event" });
@@ -135,55 +132,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventsWithOwners = await Promise.all(
         events.map(async (event) => {
           const owner = await storage.getUser(event.ownerId);
-          const registrations = await storage.getLiveEventRegistrations(event.id);
-          return { ...event, owner, attendeeCount: registrations.length, shareUrl: event.shareUrl || `/events/${event.id}` };
+          return { ...event, owner };
         }),
       );
       res.json(eventsWithOwners);
     } catch (error) {
       console.error("Error fetching live events:", error);
       res.status(500).json({ error: "Unable to load live events" });
-    }
-  });
-
-  app.get("/api/events/:id/public", async (req, res) => {
-    try {
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      const owner = await storage.getUser(event.ownerId);
-      const registrations = await storage.getLiveEventRegistrations(event.id);
-      res.json({
-        ...event,
-        owner,
-        attendeeCount: registrations.length,
-        shareUrl: event.shareUrl || `/events/${event.id}`,
-      });
-    } catch (error) {
-      console.error("Error fetching public event details:", error);
-      res.status(500).json({ error: "Unable to load event details" });
-    }
-  });
-
-  app.post("/api/events/:id/register", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      const registration = await storage.registerForLiveEvent(event.id, req.user!.id);
-      res.json({
-        ...event,
-        attendeeCount: registration.attendeeCount,
-        registered: registration.registered,
-        shareUrl: event.shareUrl || `/events/${event.id}`,
-      });
-    } catch (error) {
-      console.error("Error registering for event:", error);
-      res.status(500).json({ error: "Unable to register for event" });
     }
   });
 
@@ -755,7 +710,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // sort by createdAt ascending
-      threadWithSenders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+      const getTimestamp = (value: unknown) => {
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === 'string') return value;
+        return '';
+      };
+
+      threadWithSenders.sort((a, b) => getTimestamp(a.createdAt).localeCompare(getTimestamp(b.createdAt)));
       res.json(threadWithSenders);
     } catch (error) {
       console.error('Error fetching conversation thread:', error);
@@ -1217,33 +1178,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to access this project" });
       }
 
-      // Get all users except the project owner, with compatibility scores
-      const allUsers = await storage.getUsersByRole('student');
-      const professors = await storage.getUsersByRole('professor');
-      const allPotentialUsers = [...allUsers, ...professors].filter(user => user.id !== req.user!.id);
-      
-      // Calculate match scores for each user
-      const usersWithScores = await Promise.all(
-        allPotentialUsers.map(async (user) => {
-          try {
-            const matchScore = await matchingService.calculateUserProjectCompatibility(user.id, projectId);
-            const { password, ...publicUser } = user;
-            return {
-              ...publicUser,
-              matchScore: Math.round(matchScore * 100)
-            };
-          } catch (error) {
-            const { password, ...publicUser } = user;
-            return {
-              ...publicUser,
-              matchScore: 0
-            };
-          }
+      const usersWithScores = (await storage.getMatchingUsers(projectId, 50))
+        .filter((user) => user.id !== req.user!.id)
+        .map((user) => {
+          const { password, ...publicUser } = user;
+          return {
+            ...publicUser,
+            matchScore: Math.round(user.matchScore)
+          };
         })
-      );
-
-      // Sort by match score (highest first)
-      usersWithScores.sort((a, b) => b.matchScore - a.matchScore);
+        .sort((a, b) => b.matchScore - a.matchScore);
       
       res.json(usersWithScores);
     } catch (error) {
@@ -1260,8 +1204,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectId = req.params.id;
       const { userIds = [], emails = [], message } = req.body;
+      const requestedUserIds = Array.isArray(userIds) ? userIds as string[] : [];
+      const requestedEmails = Array.isArray(emails) ? emails as string[] : [];
       
-      if ((!userIds || userIds.length === 0) && (!emails || emails.length === 0)) {
+      if (requestedUserIds.length === 0 && requestedEmails.length === 0) {
         return res.status(400).json({ error: "At least one user ID or email is required" });
       }
 
@@ -1272,7 +1218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create shares for each user
       const shares = await Promise.all(
-        userIds.map(userId => 
+        requestedUserIds.map((userId: string) => 
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1285,7 +1231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(async userId => {
+        requestedUserIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1322,7 +1268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send emails to external email addresses
       await Promise.all(
-        emails.map(async email => {
+        requestedEmails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
@@ -1426,6 +1372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const interests = await storage.updateUserInterests(req.user!.id, {
+        userId: req.user!.id,
         keywords,
         researchAreas
       });

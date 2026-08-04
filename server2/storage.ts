@@ -87,11 +87,6 @@ export interface IStorage {
 
   getRecentActivities(limit?: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
-  getFeed(userId: string): Promise<any[]>;
-  createFeedPost(post: any): Promise<any>;
-  toggleFeedLike(postId: string, userId: string): Promise<any>;
-  getFeedComments(postId: string): Promise<any[]>;
-  createFeedComment(postId: string, comment: any): Promise<any>;
 
   getOpportunity(id: string): Promise<Opportunity | undefined>;
   getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]>;

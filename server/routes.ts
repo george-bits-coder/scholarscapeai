@@ -846,6 +846,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const interests = await storage.getUserInterests(user.id);
+      const { password, ...publicUser } = user;
+      res.json({
+        ...publicUser,
+        interests: interests || {},
+      });
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch user profile" });
+    }
+  });
+
+  app.get("/api/users/:id/projects", async (req, res) => {
+    try {
+      const projects = await storage.getProjects({ ownerId: req.params.id });
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching user projects:", error);
+      res.status(500).json({ error: "Failed to fetch user projects" });
+    }
+  });
+
+  app.get("/api/connections/status/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
+    try {
+      const otherUserId = req.params.userId;
+      const currentUserId = req.user!.id;
+      if (otherUserId === currentUserId) {
+        return res.json({ status: 'self' });
+      }
+      const connections = await storage.getConnectionsForUser(currentUserId);
+      const existing = connections.find((connection: any) =>
+        (connection.fromUserId === currentUserId && connection.toUserId === otherUserId) ||
+        (connection.fromUserId === otherUserId && connection.toUserId === currentUserId)
+      );
+      if (!existing) {
+        return res.json({ status: 'none' });
+      }
+      if (existing.status === 'pending') {
+        if (existing.fromUserId === currentUserId) {
+          return res.json({ status: 'pending', role: 'sender' });
+        }
+        return res.json({ status: 'pending', role: 'recipient' });
+      }
+      if (existing.status === 'accepted') {
+        return res.json({ status: 'connected' });
+      }
+      return res.json({ status: existing.status || 'unknown' });
+    } catch (error) {
+      console.error('Error fetching connection status:', error);
+      res.status(500).json({ error: 'Failed to fetch connection status' });
+    }
+  });
+
   // Connections (follow/connect) routes
   app.post('/api/connections', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });

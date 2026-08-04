@@ -241,8 +241,13 @@ export class FirebaseStorage implements IStorage {
   }
 
   async toggleFeedLike(postId: string, userId: string): Promise<any> {
-    const existing = await this.getItem<any>("feedPosts", postId);
-    if (!existing) throw new Error("Feed post not found");
+    const existing = (await this.getItem<any>("feedPosts", postId)) || {
+      id: postId,
+      likeCount: 0,
+      likedByUserIds: [],
+      commentCount: 0,
+      shares: 0,
+    };
 
     const likedByUserIds = Array.isArray(existing.likedByUserIds) ? existing.likedByUserIds : [];
     const alreadyLiked = likedByUserIds.includes(userId);
@@ -297,8 +302,13 @@ export class FirebaseStorage implements IStorage {
 
     await this.saveItem<any>("feedComments", id, feedComment);
 
-    const existingPost = await this.getItem<any>("feedPosts", postId);
-    if (!existingPost) throw new Error("Feed post not found");
+    const existingPost = (await this.getItem<any>("feedPosts", postId)) || {
+      id: postId,
+      likeCount: 0,
+      likedByUserIds: [],
+      commentCount: 0,
+      shares: 0,
+    };
 
     const updatedPost = {
       ...existingPost,
@@ -828,10 +838,13 @@ export class FirebaseStorage implements IStorage {
         this.listItems<any>("feedPosts"),
       ]);
 
+      const postMetaMap = new Map(feedPosts.map((post) => [post.id, post]));
       const feedItems: any[] = [];
 
       for (const project of projects.slice(0, 5)) {
         const owner = await this.getUser(project.ownerId);
+        const postMeta = postMetaMap.get(`project-${project.id}`);
+        const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
         feedItems.push({
           id: `project-${project.id}`,
           type: "project",
@@ -845,15 +858,17 @@ export class FirebaseStorage implements IStorage {
           timestamp: formatRelativeTime(project.createdAt),
           content: `${project.title}: ${project.description || "New research opportunity"}`,
           image: project.posterUrl || null,
-          likes: Math.floor(Math.random() * 500),
-          comments: Math.floor(Math.random() * 50),
-          shares: Math.floor(Math.random() * 30),
-          liked: false,
+          likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 500)),
+          comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 50)),
+          shares: Number(postMeta?.shares || Math.floor(Math.random() * 30)),
+          liked: likedByUserIds.includes(userId),
         });
       }
 
       for (const event of events.slice(0, 3)) {
         const owner = await this.getUser(event.ownerId);
+        const postMeta = postMetaMap.get(`event-${event.id}`);
+        const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
         feedItems.push({
           id: `event-${event.id}`,
           type: "event",
@@ -867,10 +882,10 @@ export class FirebaseStorage implements IStorage {
           timestamp: formatRelativeTime(event.createdAt),
           content: `New event: ${event.title} on ${event.date}`,
           image: null,
-          likes: Math.floor(Math.random() * 300),
-          comments: Math.floor(Math.random() * 40),
-          shares: Math.floor(Math.random() * 20),
-          liked: false,
+          likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 300)),
+          comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 40)),
+          shares: Number(postMeta?.shares || Math.floor(Math.random() * 20)),
+          liked: likedByUserIds.includes(userId),
         });
       }
 

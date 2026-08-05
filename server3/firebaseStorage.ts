@@ -317,19 +317,7 @@ export class FirebaseStorage implements IStorage {
     };
 
     await setValue(`feedPosts/${postId}`, updatedPost);
-
-    const author = await this.getUser(comment.authorId);
-    return {
-      ...feedComment,
-      author: {
-        id: author?.id,
-        name: author?.fullName || author?.name || 'Unknown',
-        avatar: getInitials(author?.fullName || author?.name),
-        title: author?.role || 'Member',
-        university: author?.affiliation || 'ScholarScape',
-      },
-      timestamp: formatRelativeTime(feedComment.createdAt),
-    };
+    return feedComment;
   }
 
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
@@ -862,7 +850,6 @@ export class FirebaseStorage implements IStorage {
           type: "project",
           createdAt: project.createdAt || nowIso(),
           author: {
-            id: owner?.id,
             name: owner?.fullName || owner?.name || "Unknown",
             title: owner?.role || "Researcher",
             avatar: getInitials(owner?.fullName || owner?.name),
@@ -887,7 +874,6 @@ export class FirebaseStorage implements IStorage {
           type: "event",
           createdAt: event.createdAt || nowIso(),
           author: {
-            id: owner?.id,
             name: owner?.fullName || owner?.name || "Unknown",
             title: owner?.role || "Organizer",
             avatar: getInitials(owner?.fullName || owner?.name),
@@ -911,7 +897,6 @@ export class FirebaseStorage implements IStorage {
           type: "post",
           createdAt: post.createdAt || nowIso(),
           author: {
-            id: author?.id,
             name: author?.fullName || author?.name || "Unknown",
             title: author?.role || "Member",
             avatar: getInitials(author?.fullName || author?.name),

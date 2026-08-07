@@ -291,10 +291,6 @@ export class FirebaseStorage implements IStorage {
     );
   }
 
-  async getFeedPost(postId: string): Promise<any | undefined> {
-    return this.getItem<any>("feedPosts", postId);
-  }
-
   async createFeedComment(postId: string, comment: any): Promise<any> {
     const id = comment.id || createFirebaseId();
     const feedComment = {
@@ -730,11 +726,6 @@ export class FirebaseStorage implements IStorage {
   async getConnectionsForUser(userId: string): Promise<any[]> {
     const all = await this.listItems<any>('connections');
     return all.filter((c) => (c.fromUserId === userId || c.toUserId === userId) && c.status === 'accepted');
-  }
-
-  async getAllConnectionsForUser(userId: string): Promise<any[]> {
-    const all = await this.listItems<any>('connections');
-    return all.filter((c) => c.fromUserId === userId || c.toUserId === userId);
   }
 
   async getConnectionRequestsForUser(userId: string): Promise<any[]> {

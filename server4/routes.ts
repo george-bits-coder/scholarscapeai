@@ -70,10 +70,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    if (String(req.user!.role || '').toLowerCase() === 'student') {
-      return res.status(403).json({ error: "Students are not allowed to create projects" });
-    }
-
     try {
       const projectData = insertProjectSchema.parse({
         ...req.body,
@@ -886,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (otherUserId === currentUserId) {
         return res.json({ status: 'self' });
       }
-      const connections = await storage.getAllConnectionsForUser(currentUserId);
+      const connections = await storage.getConnectionsForUser(currentUserId);
       const existing = connections.find((connection: any) =>
         (connection.fromUserId === currentUserId && connection.toUserId === otherUserId) ||
         (connection.fromUserId === otherUserId && connection.toUserId === currentUserId)
@@ -1523,16 +1519,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const { content, image } = req.body ?? {};
-      const hasText = typeof content === "string" && content.trim().length > 0;
-      const hasImage = typeof image === "string" && image.trim().length > 0;
-      if (!hasText && !hasImage) {
-        return res.status(400).json({ error: "Post content or image is required" });
+      if (!content || typeof content !== "string" || !content.trim()) {
+        return res.status(400).json({ error: "Post content is required" });
       }
 
       const post = await storage.createFeedPost({
         authorId: req.user!.id,
-        content: hasText ? content.trim() : "",
-        image: hasImage ? image : null,
+        content: content.trim(),
+        image: image || null,
       });
 
       res.status(201).json(post);
@@ -1585,17 +1579,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authorId: req.user!.id,
         content: content.trim(),
       });
-
-      const post = await storage.getFeedPost(req.params.postId);
-      if (post && post.authorId && post.authorId !== req.user!.id) {
-        await storage.createNotification({
-          userId: post.authorId,
-          type: "feed_comment",
-          title: "New comment on your post",
-          content: `${req.user!.name} commented on your post`,
-          payload: { postId: req.params.postId, commentId: comment.id },
-        });
-      }
 
       res.status(201).json(comment);
     } catch (error) {

@@ -1,0 +1,9 @@
+{
+  "name": "researchcollab-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm install --prefix .. && npm run build --prefix ..",
+    "start": "NODE_ENV=production node ../dist/index.js"
+  }
+}

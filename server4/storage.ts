@@ -91,7 +91,6 @@ export interface IStorage {
   createFeedPost(post: any): Promise<any>;
   toggleFeedLike(postId: string, userId: string): Promise<any>;
   getFeedComments(postId: string): Promise<any[]>;
-  getFeedPost(postId: string): Promise<any | undefined>;
   createFeedComment(postId: string, comment: any): Promise<any>;
 
   getOpportunity(id: string): Promise<Opportunity | undefined>;
@@ -122,7 +121,6 @@ export interface IStorage {
   getConnectionRequest(id: string): Promise<any | undefined>;
   updateConnectionRequest(id: string, updates: Partial<any>): Promise<any>;
   getConnectionsForUser(userId: string): Promise<any[]>;
-  getAllConnectionsForUser(userId: string): Promise<any[]>;
   getConnectionRequestsForUser(userId: string): Promise<any[]>;
 
   getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]>;

@@ -852,10 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/:id", async (req, res) => {
     try {
-      let user = await storage.getUser(req.params.id);
-      if (!user) {
-        user = await storage.getUserByUsername(req.params.id);
-      }
+      const user = await storage.getUser(req.params.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -873,14 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/:id/projects", async (req, res) => {
     try {
-      let user = await storage.getUser(req.params.id);
-      if (!user) {
-        user = await storage.getUserByUsername(req.params.id);
-      }
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const projects = await storage.getProjects({ ownerId: user.id });
+      const projects = await storage.getProjects({ ownerId: req.params.id });
       res.json(projects);
     } catch (error) {
       console.error("Error fetching user projects:", error);

@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -850,43 +851,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/users/:id", async (req, res) => {
-    const requestedId = req.params.id;
     try {
-      let user = await storage.getUser(requestedId);
+      let user = await storage.getUser(req.params.id);
       if (!user) {
-        user = await storage.getUserByUsername(requestedId);
+        user = await storage.getUserByUsername(req.params.id);
       }
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-
-      let interests = {};
-      try {
-        const fetchedInterests = await storage.getUserInterests(user.id);
-        interests = fetchedInterests || {};
-      } catch (error) {
-        console.error(`Error fetching interests for user ${user.id}:`, error);
-      }
-
+      const interests = await storage.getUserInterests(user.id);
       const { password, ...publicUser } = user;
       res.json({
         ...publicUser,
-        interests,
+        interests: interests || {},
       });
     } catch (error) {
-      console.error(`Error fetching user profile for ${requestedId}:`, error);
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      res.status(500).json({ error: message, stack });
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch user profile" });
     }
   });
 
   app.get("/api/users/:id/projects", async (req, res) => {
-    const requestedId = req.params.id;
     try {
-      let user = await storage.getUser(requestedId);
+      let user = await storage.getUser(req.params.id);
       if (!user) {
-        user = await storage.getUserByUsername(requestedId);
+        user = await storage.getUserByUsername(req.params.id);
       }
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -894,7 +883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projects = await storage.getProjects({ ownerId: user.id });
       res.json(projects);
     } catch (error) {
-      console.error(`Error fetching projects for user ${requestedId}:`, error);
+      console.error("Error fetching user projects:", error);
       res.status(500).json({ error: "Failed to fetch user projects" });
     }
   });
@@ -1065,6 +1054,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Object Storage Routes
+  app.post("/api/objects/upload", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Serve private objects (CVs and user uploads)
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
   // Update user CV endpoint
   app.put("/api/users/cv", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1073,13 +1089,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const { cvUrl } = req.body;
-      if (!cvUrl || typeof cvUrl !== 'string') {
+      if (!cvUrl) {
         return res.status(400).json({ error: "CV URL is required" });
       }
 
-      const normalizedUrl = cvUrl.trim();
-      await storage.updateUser(req.user!.id, { cvUrl: normalizedUrl });
-      res.json({ success: true, cvUrl: normalizedUrl });
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(cvUrl);
+      
+      await storage.updateUser(req.user!.id, { cvUrl: normalizedPath });
+      res.json({ success: true, cvUrl: normalizedPath });
     } catch (error) {
       console.error("Error updating CV:", error);
       res.status(500).json({ error: "Failed to update CV" });
@@ -1094,7 +1112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const { flyerUrl } = req.body;
-      if (!flyerUrl || typeof flyerUrl !== 'string') {
+      if (!flyerUrl) {
         return res.status(400).json({ error: "Flyer URL is required" });
       }
 
@@ -1107,9 +1125,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to update this project" });
       }
 
-      const normalizedUrl = flyerUrl.trim();
-      await storage.updateProject(req.params.id, { flyerUrl: normalizedUrl });
-      res.json({ success: true, flyerUrl: normalizedUrl });
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(flyerUrl);
+      
+      await storage.updateProject(req.params.id, { flyerUrl: normalizedPath });
+      res.json({ success: true, flyerUrl: normalizedPath });
     } catch (error) {
       console.error("Error updating project flyer:", error);
       res.status(500).json({ error: "Failed to update project flyer" });
@@ -1124,7 +1144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const { posterUrl } = req.body;
-      if (!posterUrl || typeof posterUrl !== 'string') {
+      if (!posterUrl) {
         return res.status(400).json({ error: "Poster URL is required" });
       }
 
@@ -1135,9 +1155,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to update this event" });
       }
 
-      const normalizedUrl = posterUrl.trim();
-      await storage.updateLiveEvent(req.params.id, { posterUrl: normalizedUrl } as any);
-      res.json({ success: true, posterUrl: normalizedUrl });
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(posterUrl);
+
+      await storage.updateLiveEvent(req.params.id, { posterUrl: normalizedPath } as any);
+      res.json({ success: true, posterUrl: normalizedPath });
     } catch (error) {
       console.error("Error updating event poster:", error);
       res.status(500).json({ error: "Failed to update event poster" });

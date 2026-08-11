@@ -530,10 +530,8 @@ export class FirebaseStorage implements IStorage {
 
   async getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]> {
     const applications = await this.getApplications({ projectId });
-    // Exclude applications that were rejected or ignored so owners see only active applicants
-    const visible = applications.filter((app) => app.status !== 'rejected' && app.status !== 'ignored');
     return await Promise.all(
-      visible.map(async (application) => {
+      applications.map(async (application) => {
         const user = (await this.getUser(application.userId)) as User;
         const project = (await this.getProject(application.projectId)) as Project;
         return { ...application, user, project };
@@ -555,9 +553,8 @@ export class FirebaseStorage implements IStorage {
   async getApplicationsForProjectOwner(ownerId: string): Promise<(Application & { user: User; project: Project })[]> {
     const ownedProjects = await this.getProjects({ ownerId });
     const projectIdSet = new Set(ownedProjects.map((project) => project.id));
-    // Only include applications for owned projects and exclude rejected/ignored ones
     const applications = (await this.listItems<Application>("applications")).filter((application) =>
-      projectIdSet.has(application.projectId) && application.status !== 'rejected' && application.status !== 'ignored',
+      projectIdSet.has(application.projectId),
     );
     const users = await this.listItems<User>("users");
     const userMap = new Map(users.map((user) => [user.id, user]));

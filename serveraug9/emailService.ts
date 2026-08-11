@@ -160,7 +160,7 @@ The Project Team
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
     .status { padding: 15px; border-radius: 5px; margin: 15px 0; }
     .approved { background: #d4edda; color: #155724; }
-    .rejected, .ignored { background: #f8d7da; color: #721c24; }
+    .rejected { background: #f8d7da; color: #721c24; }
     .under_review { background: #fff3cd; color: #856404; }
     a { color: #007bff; text-decoration: none; }
   </style>
@@ -172,7 +172,7 @@ The Project Team
   
   <div class="status ${status}">
     ${status === 'approved' ? '🎉 Congratulations! Your application has been approved.' : 
-      status === 'rejected' || status === 'ignored' ? 'Thank you for your application. Unfortunately, we won\'t be moving forward at this time.' : 
+      status === 'rejected' ? 'Thank you for your application. Unfortunately, we won\'t be moving forward at this time.' : 
       '⏳ Your application is currently under review.'}
   </div>
   

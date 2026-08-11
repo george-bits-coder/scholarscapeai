@@ -7,10 +7,6 @@ import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, 
 import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 
-function getDisplayName(user: { fullName?: string; name?: string; username?: string } | null | undefined) {
-  return user?.fullName || user?.name || user?.username || "Someone";
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
   setupAuth(app);
@@ -46,22 +42,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const owner = await storage.getUser(project.ownerId);
-
-      // Only include applications when the requester is the project owner
-      let applications;
-      try {
-        if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.id === project.ownerId) {
-          applications = await storage.getApplicationsForProject(project.id);
-        }
-      } catch (err) {
-        // ignore and don't include applications
-        applications = undefined;
-      }
-
-      const response: any = { ...project, owner };
-      if (applications) response.applications = applications;
-
-      res.json(response);
+      const applications = await storage.getApplications({ projectId: project.id });
+      
+      res.json({ ...project, owner, applications });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch project" });
     }
@@ -147,42 +130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating live event:", error);
       res.status(500).json({ error: "Unable to create live event" });
-    }
-  });
-
-  // Public researchers listing with optional search and filters
-  app.get('/api/researchers', async (req, res) => {
-    try {
-      const q = (req.query.q || '').toString().trim().toLowerCase();
-      const roleParam = req.query.role ? String(req.query.role).toLowerCase() : '';
-      const fieldParam = req.query.field ? String(req.query.field).toLowerCase() : '';
-
-      let users: any[] = [];
-      if (roleParam) {
-        users = await storage.getUsersByRole(roleParam);
-      } else {
-        const researchers = await storage.getUsersByRole('researcher');
-        const professors = await storage.getUsersByRole('professor');
-        users = [...researchers, ...professors];
-      }
-
-      if (q) {
-        users = users.filter((u) => {
-          const name = (u.fullName || u.name || '').toString().toLowerCase();
-          const affiliation = (u.affiliation || u.organization || '').toString().toLowerCase();
-          const field = (u.field || '').toString().toLowerCase();
-          return name.includes(q) || affiliation.includes(q) || field.includes(q);
-        });
-      }
-
-      if (fieldParam) {
-        users = users.filter((u) => ((u.field || '').toString().toLowerCase().includes(fieldParam)));
-      }
-
-      res.json(users);
-    } catch (error) {
-      console.error('Error fetching researchers:', error);
-      res.status(500).json({ error: 'Failed to fetch researchers' });
     }
   });
 
@@ -525,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId: project.ownerId,
           type: "application",
           title: "New Project Application",
-          content: `${getDisplayName(req.user!)} applied to your project: ${project.title}`,
+          content: `${req.user!.name} applied to your project: ${project.title}`,
           payload: { applicationId: application.id, projectId: project.id },
         });
 
@@ -541,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               projectOwner.email,
               projectOwner.name,
               project.title,
-              getDisplayName(req.user!),
+              req.user!.name,
               loginUrl
             );
             
@@ -570,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, reviewNotes } = req.body;
       
       // Validate status
-      if (!['submitted', 'under_review', 'approved', 'rejected', 'ignored'].includes(status)) {
+      if (!['submitted', 'under_review', 'approved', 'rejected'].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 
@@ -726,7 +673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId: recipientId,
           type: "application",
           title: "New Application Comment",
-          content: `${getDisplayName(req.user!)} commented on an application for "${project.title}"`,
+          content: `${req.user!.name} commented on an application for "${project.title}"`,
           payload: { applicationId: application.id, projectId: project.id },
         });
       }
@@ -746,24 +693,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const { projectId } = req.query;
-      const currentUserId = req.user!.id;
-      let messages = await storage.getMessages({});
-      messages = messages.filter(
-        (message) => message.senderId === currentUserId || message.receiverId === currentUserId,
-      );
-      if (projectId) {
-        messages = messages.filter((message) => message.projectId === (projectId as string));
-      }
-
-      const messagesWithParticipants = await Promise.all(
+      const messages = await storage.getMessages({
+        receiverId: req.user!.id,
+        projectId: projectId as string,
+      });
+      
+      // Get sender details for each message
+      const messagesWithSenders = await Promise.all(
         messages.map(async (message) => {
           const sender = await storage.getUser(message.senderId);
-          const receiver = await storage.getUser(message.receiverId);
-          return { ...message, sender, receiver };
+          return { ...message, sender };
         })
       );
-
-      res.json(messagesWithParticipants);
+      
+      res.json(messagesWithSenders);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch messages" });
     }
@@ -787,7 +730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: message.receiverId,
         type: "message",
         title: "New Message",
-        content: `${getDisplayName(req.user!)} sent you a message`,
+        content: `${req.user!.name} sent you a message`,
         payload: { messageId: message.id, senderId: req.user!.id },
       });
       
@@ -1402,7 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             type: "project_share",
             title: "Project Shared with You",
-            content: `${getDisplayName(req.user!)} shared a project: ${project.title}`,
+            content: `${req.user!.name} shared a project: ${project.title}`,
             payload: { projectId, shareId: shares.find(s => s.sharedWithId === userId)?.id }
           });
 
@@ -1617,19 +1560,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/public/feed/posts/:postId', async (req, res) => {
-    try {
-      const post = await storage.getFeedPost(req.params.postId);
-      if (!post) {
-        return res.status(404).json({ error: 'Post not found' });
-      }
-      res.json(post);
-    } catch (error) {
-      console.error('Error fetching shared feed post:', error);
-      res.status(500).json({ error: 'Failed to fetch shared post' });
-    }
-  });
-
   app.post("/api/feed/:postId/comments", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -1652,7 +1582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId: post.authorId,
           type: "feed_comment",
           title: "New comment on your post",
-          content: `${getDisplayName(req.user!)} commented on your post`,
+          content: `${req.user!.name} commented on your post`,
           payload: { postId: req.params.postId, commentId: comment.id },
         });
       }

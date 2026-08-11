@@ -425,8 +425,6 @@ export class FirebaseStorage implements IStorage {
     const id = insertApplication.id || createFirebaseId();
     const application: any = {
       ...insertApplication,
-      status: insertApplication.status || 'submitted',
-      reviewNotes: insertApplication.reviewNotes || '',
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };

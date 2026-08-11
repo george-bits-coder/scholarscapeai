@@ -46,22 +46,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const owner = await storage.getUser(project.ownerId);
-
-      // Only include applications when the requester is the project owner
-      let applications;
-      try {
-        if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.id === project.ownerId) {
-          applications = await storage.getApplicationsForProject(project.id);
-        }
-      } catch (err) {
-        // ignore and don't include applications
-        applications = undefined;
-      }
-
-      const response: any = { ...project, owner };
-      if (applications) response.applications = applications;
-
-      res.json(response);
+      const applications = await storage.getApplications({ projectId: project.id });
+      
+      res.json({ ...project, owner, applications });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch project" });
     }
@@ -570,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, reviewNotes } = req.body;
       
       // Validate status
-      if (!['submitted', 'under_review', 'approved', 'rejected', 'ignored'].includes(status)) {
+      if (!['submitted', 'under_review', 'approved', 'rejected'].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 

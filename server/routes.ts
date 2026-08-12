@@ -542,28 +542,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const application = await storage.createApplication(applicationData);
       
       // Create notification and send email for project owner
-      const project = await storage.getProject(application.projectId);
-      if (project) {
+      const notifiedProject = await storage.getProject(application.projectId);
+      if (notifiedProject) {
         await storage.createNotification({
-          userId: project.ownerId,
+          userId: notifiedProject.ownerId,
           type: "application",
           title: "New Project Application",
-          content: `${getDisplayName(req.user!)} applied to your project: ${project.title}`,
-          payload: { applicationId: application.id, projectId: project.id },
+          content: `${getDisplayName(req.user!)} applied to your project: ${notifiedProject.title}`,
+          payload: { applicationId: application.id, projectId: notifiedProject.id },
         });
 
         // Send email notification to project owner
         try {
-          const projectOwner = await storage.getUser(project.ownerId);
-          if (projectOwner?.email) {
-            const loginUrl = process.env.REPLIT_DOMAINS 
-              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-              : 'http://localhost:5000';
+const projectOwner = await storage.getUser(notifiedProject.ownerId);
+            if (projectOwner?.email) {
+              const loginUrl = process.env.REPLIT_DOMAINS 
+                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                : 'http://localhost:5000';
             
             const emailTemplate = emailService.createNewApplicationEmail(
               projectOwner.email,
               projectOwner.name,
-              project.title,
+              notifiedProject.title,
               getDisplayName(req.user!),
               loginUrl
             );

@@ -511,34 +511,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const projectId = (req.body && (req.body.projectId || req.body.project?.id)) || '';
-      if (!projectId || typeof projectId !== 'string') {
-        return res.status(400).json({ error: 'projectId is required' });
-      }
-
-      const project = await storage.getProject(projectId);
-      if (!project) {
-        return res.status(404).json({ error: 'Project not found' });
-      }
-
-      // Prevent owners from applying to their own project
-      if (project.ownerId && project.ownerId === req.user!.id) {
-        return res.status(400).json({ error: 'You cannot apply to your own project' });
-      }
-
-      // Lightweight validation/fallback: some deployments may not have the
-      // shared schema available or it may be stricter than the client. Build
-      // the minimal application object expected by storage and avoid throwing
-      // a 400 from schema parsing here.
-      const applicationData = {
-        id: (req.body && req.body.id) || undefined,
-        projectId,
+      const applicationData = insertApplicationSchema.parse({
+        ...req.body,
         userId: req.user!.id,
-        coverLetter: typeof (req.body && req.body.coverLetter) === 'string' ? req.body.coverLetter : '',
-        status: (req.body && req.body.status) || 'submitted',
-        reviewNotes: (req.body && req.body.reviewNotes) || '',
-      };
-
+      });
+      
       const application = await storage.createApplication(applicationData);
       
       // Create notification and send email for project owner
@@ -579,9 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(application);
     } catch (error) {
-      console.error('Failed to create application:', error instanceof Error ? error.message : error);
-      const msg = error instanceof Error ? error.message : 'Invalid application data';
-      res.status(400).json({ error: msg });
+      res.status(400).json({ error: "Invalid application data" });
     }
   });
 

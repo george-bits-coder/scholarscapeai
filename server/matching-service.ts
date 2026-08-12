@@ -233,6 +233,27 @@ export class MatchingService {
     const embedding = await this.generateProjectEmbedding(project);
     await storage.updateProject(projectId, { projectEmbedding: embedding });
   }
+
+  // Calculate compatibility score between a specific user and project
+  async calculateUserProjectCompatibility(userId: string, projectId: string): Promise<number> {
+    const user = await storage.getUser(userId);
+    const project = await storage.getProject(projectId);
+    if (!user || !project) return 0;
+
+    let userEmbedding = (user.profileEmbedding as number[] | null) ?? null;
+    if (!userEmbedding) {
+      userEmbedding = await this.generateUserEmbedding(user);
+      await storage.updateUser(userId, { profileEmbedding: userEmbedding });
+    }
+
+    let projectEmbedding = (project.projectEmbedding as number[] | null) ?? null;
+    if (!projectEmbedding) {
+      projectEmbedding = await this.generateProjectEmbedding(project);
+      await storage.updateProject(projectId, { projectEmbedding });
+    }
+
+    return this.calculateCosineSimilarity(userEmbedding, projectEmbedding);
+  }
 }
 
 export const matchingService = new MatchingService();

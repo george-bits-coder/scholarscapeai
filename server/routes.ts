@@ -509,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }
-
+console.log(req.body,"request body")
     try {
       const projectId = (req.body && (req.body.projectId || req.body.project?.id)) || '';
       if (!projectId || typeof projectId !== 'string') {
@@ -543,8 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const application = await storage.createApplication(applicationData);
       
-      // Create notification and send email for project owner
-      const project = await storage.getProject(application.projectId);
+      // Create notification and send email for project owner (reuse previously loaded `project`)
       if (project) {
         await storage.createNotification({
           userId: project.ownerId,
@@ -842,8 +841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      // sort by createdAt ascending
-      threadWithSenders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+      // sort by createdAt ascending (handle Date | string | undefined)
+      threadWithSenders.sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
       res.json(threadWithSenders);
     } catch (error) {
       console.error('Error fetching conversation thread:', error);
@@ -1410,7 +1409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create shares for each user
       const shares = await Promise.all(
-        userIds.map(userId => 
+        userIds.map((userId: string) => 
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1423,7 +1422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(async userId => {
+        userIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1460,7 +1459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send emails to external email addresses
       await Promise.all(
-        emails.map(async email => {
+        emails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`

@@ -29,7 +29,7 @@ export interface Activity {
   id: string;
   message: string;
   actorId?: string;
-  createdAt?: string;
+  createdAt?: Date;
 }
 
 export interface InsertActivity {
@@ -48,8 +48,8 @@ export interface LiveEvent {
   link: string;
   ownerId: string;
   shareUrl?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface InsertLiveEvent {

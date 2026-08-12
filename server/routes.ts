@@ -513,6 +513,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(req.body, "request body");
 
     try {
+        // FIX: Extract projectId correctly whether it's a string or an object
+        let projectId = req.body.projectId;
+        if (typeof req.body === 'string') {
+            projectId = req.body; // If the frontend sends the ID as a raw string
+        } else if (typeof req.body.projectId === 'object' && req.body.projectId?.projectId) {
+            projectId = req.body.projectId.projectId; // Unwrap nested object
+        }
+
+        // FIX: Construct the payload explicitly to match the schema
+        const applicationData = insertApplicationSchema.parse({
+            projectId: projectId,               // Must be a string
+            userId: req.user!.id,               // Must be provided inside the object
+            coverLetter: req.body.coverLetter || req.body.message || '',
+            status: 'submitted'
+        });
+        
+        const application = await storage.createApplication(applicationData);
+        
+        // Create notification and send email for project owner
+        const project = await storage.getProject(application.projectId);
+        if (project) {
+            await storage.createNotification({
+                userId: project.ownerId,
+                type: "application",
+                title: "New Project Application",
+                content: `${req.user!.name} applied to your project: ${project.title}`,
+                payload: { applicationId: application.id, projectId: project.id },
+            });
+
+            // Send email notification to project owner
+            try {
+                const projectOwner = await storage.getUser(project.ownerId);
+                if (projectOwner?.email) {
+                    const loginUrl = process.env.REPLIT_DOMAINS 
+                        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                        : 'http://localhost:5000';
+                    
+                    const emailTemplate = emailService.createNewApplicationEmail(
+                        projectOwner.email,
+                        projectOwner.name,
+                        project.title,
+                        req.user!.name,
+                        loginUrl
+                    );
+                    
+                    await emailService.sendEmail(emailTemplate);
+                    console.log(`New application email sent to ${projectOwner.email}`);
+                }
+            } catch (emailError) {
+                console.error('Failed to send new application email:', emailError);
+                // Don't fail the whole request if email fails
+            }
+        }
+        
+        res.status(201).json(application);
+    } catch (error) {
+        console.error('Failed to create application:', error);
+        // Log the actual Zod issues for debugging
+        if (error.issues) console.error('Zod Validation Issues:', error.issues);
+        res.status(400).json({ error: "Invalid application data" });
+    }
+});
+    
+    console.log(req.body, "request body");
+
+    try {
         // Use schema validation - this handles ID generation
         const applicationData = insertApplicationSchema.parse({
             ...req.body,

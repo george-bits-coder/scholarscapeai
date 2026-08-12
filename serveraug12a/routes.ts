@@ -530,42 +530,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // shared schema available or it may be stricter than the client. Build
       // the minimal application object expected by storage and avoid throwing
       // a 400 from schema parsing here.
-      const applicationData: any = {
+      const applicationData = {
+        id: (req.body && req.body.id) || undefined,
         projectId,
         userId: req.user!.id,
         coverLetter: typeof (req.body && req.body.coverLetter) === 'string' ? req.body.coverLetter : '',
         status: (req.body && req.body.status) || 'submitted',
         reviewNotes: (req.body && req.body.reviewNotes) || '',
       };
-      if (req.body && typeof req.body.id === 'string') {
-        applicationData.id = req.body.id;
-      }
 
       const application = await storage.createApplication(applicationData);
       
       // Create notification and send email for project owner
-      const project = await storage.getProject(application.projectId);
-      if (project) {
+      const notifiedProject = await storage.getProject(application.projectId);
+      if (notifiedProject) {
         await storage.createNotification({
-          userId: project.ownerId,
+          userId: notifiedProject.ownerId,
           type: "application",
           title: "New Project Application",
-          content: `${getDisplayName(req.user!)} applied to your project: ${project.title}`,
-          payload: { applicationId: application.id, projectId: project.id },
+          content: `${getDisplayName(req.user!)} applied to your project: ${notifiedProject.title}`,
+          payload: { applicationId: application.id, projectId: notifiedProject.id },
         });
 
         // Send email notification to project owner
         try {
-          const projectOwner = await storage.getUser(project.ownerId);
-          if (projectOwner?.email) {
-            const loginUrl = process.env.REPLIT_DOMAINS 
-              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-              : 'http://localhost:5000';
+const projectOwner = await storage.getUser(notifiedProject.ownerId);
+            if (projectOwner?.email) {
+              const loginUrl = process.env.REPLIT_DOMAINS 
+                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                : 'http://localhost:5000';
             
             const emailTemplate = emailService.createNewApplicationEmail(
               projectOwner.email,
               projectOwner.name,
-              project.title,
+              notifiedProject.title,
               getDisplayName(req.user!),
               loginUrl
             );
@@ -1675,17 +1673,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const post = await storage.getFeedPost(req.params.postId);
       if (post && post.authorId && post.authorId !== req.user!.id) {
-        try {
-          await storage.createNotification({
-            userId: post.authorId,
-            type: "feed_comment",
-            title: "New comment on your post",
-            content: `${getDisplayName(req.user!)} commented on your post`,
-            payload: { postId: req.params.postId, commentId: comment.id },
-          });
-        } catch (notificationError) {
-          console.error('Failed to create feed comment notification:', notificationError);
-        }
+        await storage.createNotification({
+          userId: post.authorId,
+          type: "feed_comment",
+          title: "New comment on your post",
+          content: `${getDisplayName(req.user!)} commented on your post`,
+          payload: { postId: req.params.postId, commentId: comment.id },
+        });
       }
 
       res.status(201).json(comment);

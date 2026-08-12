@@ -82,33 +82,12 @@ export async function getValue<T>(path: string): Promise<T | null> {
   return snapshot.exists() ? (snapshot.val() as T) : null;
 }
 
-function sanitizeForFirebase(value: any): any {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForFirebase(item));
-  }
-
-  const sanitized: any = {};
-  for (const key of Object.keys(value)) {
-    const child = sanitizeForFirebase(value[key]);
-    if (child !== undefined) {
-      sanitized[key] = child;
-    }
-  }
-  return sanitized;
-}
-
 export async function setValue(path: string, value: any): Promise<void> {
-  await firebaseRootRef.child(path).set(sanitizeForFirebase(value));
+  await firebaseRootRef.child(path).set(value);
 }
 
 export async function updateValue(path: string, updates: any): Promise<void> {
-  await firebaseRootRef.child(path).update(sanitizeForFirebase(updates));
+  await firebaseRootRef.child(path).update(updates);
 }
 
 export async function removeValue(path: string): Promise<void> {

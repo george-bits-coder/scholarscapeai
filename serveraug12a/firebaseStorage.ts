@@ -92,7 +92,7 @@ export class FirebaseStorage implements IStorage {
   }
 
   private async saveItem<T extends Record<string, any>>(path: string, id: string, item: T): Promise<T & { id: string }> {
-    await setValue(`${path}/${id}`, { ...item, id });
+    await setValue(`${path}/${id}`, item);
     return ensureId<T>(item, id);
   }
 

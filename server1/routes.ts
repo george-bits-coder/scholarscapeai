@@ -404,62 +404,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/applications", async (req, res) => {
-    console.log("inside api/applications POST route")
     if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
+        return res.status(401).json({ error: "Authentication required" });
     }
-console.log(req.body,"request body")
+    console.log(req.body, "request body");
+    
     try {
-      const applicationData = insertApplicationSchema.parse({
-        ...req.body,
-        userId: req.user!.id,
-      });
-console.log(applicationData,"application data")
-      const application = await storage.createApplication(applicationData);
-      console.log(application,"application created")
-      // Create notification and send email for project owner
-      const project = await storage.getProject(application.projectId);
-
-      console.log(project,"project details")
-      if (project) {
-        await storage.createNotification({
-          userId: project.ownerId,
-          type: "application",
-          title: "New Project Application",
-          content: `${req.user!.name} applied to your project: ${project.title}`,
-          payload: { applicationId: application.id, projectId: project.id },
-        });
-console.log("Notification created for project owner");
-        // Send email notification to project owner
-        try {
-          const projectOwner = await storage.getUser(project.ownerId);
-          if (projectOwner?.email) {
-            const loginUrl = process.env.REPLIT_DOMAINS 
-              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-              : 'http://localhost:5000';
-            
-            const emailTemplate = emailService.createNewApplicationEmail(
-              projectOwner.email,
-              projectOwner.name,
-              project.title,
-              req.user!.name,
-              loginUrl
-            );
-            
-            await emailService.sendEmail(emailTemplate);
-            console.log(`New application email sent to ${projectOwner.email}`);
-          }
-        } catch (emailError) {
-          console.error('Failed to send new application email:', emailError);
-          // Don't fail the whole request if email fails
+        const projectId = (req.body && (req.body.projectId || req.body.project?.id)) || '';
+        if (!projectId || typeof projectId !== 'string') {
+            return res.status(400).json({ error: 'projectId is required' });
         }
-      }
-      
-      res.status(201).json(application);
+
+        const project = await storage.getProject(projectId);
+        if (!project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        // Prevent owners from applying to their own project
+        if (project.ownerId && project.ownerId === req.user!.id) {
+            return res.status(400).json({ error: 'You cannot apply to your own project' });
+        }
+
+        // Generate a unique ID for the application
+        const crypto = require('crypto');
+        const applicationId = crypto.randomUUID(); // Generates a UUID like "123e4567-e89b-12d3-a456-426614174000"
+        
+        // Build the complete application data with generated ID
+        const applicationData = {
+            id: applicationId,
+            projectId: projectId,
+            userId: req.user!.id,
+            coverLetter: typeof req.body.coverLetter === 'string' ? req.body.coverLetter : '',
+            status: (req.body && req.body.status) || 'submitted',
+            reviewNotes: (req.body && req.body.reviewNotes) || '',
+            createdAt: new Date().toISOString(), // Optional: add timestamp
+            updatedAt: new Date().toISOString(), // Optional: add timestamp
+        };
+
+        console.log('Creating application with data:', applicationData);
+        
+        const application = await storage.createApplication(applicationData);
+        
+        // Create notification and send email for project owner
+        if (project) {
+            await storage.createNotification({
+                userId: project.ownerId,
+                type: "application",
+                title: "New Project Application",
+                content: `${getDisplayName(req.user!)} applied to your project: ${project.title}`,
+                payload: { applicationId: application.id, projectId: project.id },
+            });
+
+            // Send email notification to project owner
+            try {
+                const projectOwner = await storage.getUser(project.ownerId);
+                if (projectOwner?.email) {
+                    const loginUrl = process.env.REPLIT_DOMAINS 
+                        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                        : 'http://localhost:5000';
+                    
+                    const emailTemplate = emailService.createNewApplicationEmail(
+                        projectOwner.email,
+                        projectOwner.name,
+                        project.title,
+                        getDisplayName(req.user!),
+                        loginUrl
+                    );
+                    
+                    await emailService.sendEmail(emailTemplate);
+                    console.log(`New application email sent to ${projectOwner.email}`);
+                }
+            } catch (emailError) {
+                console.error('Failed to send new application email:', emailError);
+                // Don't fail the whole request if email fails
+            }
+        }
+        
+        res.status(201).json(application);
     } catch (error) {
-      res.status(400).json({ error: "Invalid application data" });
+        console.error('Failed to create application:', error instanceof Error ? error.message : error);
+        const msg = error instanceof Error ? error.message : 'Invalid application data';
+        res.status(400).json({ error: msg });
     }
-  });
+});
 
   // Update application status
   app.put("/api/applications/:id/status", async (req, res) => {

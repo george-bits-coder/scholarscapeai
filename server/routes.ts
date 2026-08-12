@@ -505,77 +505,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+
   app.post("/api/applications", async (req, res) => {
-    if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Authentication required" });
-    }
-    
-    console.log(req.body, "request body");
 
+    console.log("Received application request:", req.body, "from user:", req.user);
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  console.log(req.body, "request body");
+
+  try {
+    // Extract projectId correctly - handle multiple possible formats
+    let projectId = req.body.projectId;
+    
+    // If the entire body is a string (projectId sent directly)
+    if (typeof req.body === 'string') {
+      projectId = req.body;
+    } 
+    // If projectId is an object with a projectId property (nested)
+    else if (typeof req.body.projectId === 'object' && req.body.projectId?.projectId) {
+      projectId = req.body.projectId.projectId;
+    }
+    // If projectId is a string
+    else if (typeof req.body.projectId === 'string') {
+      projectId = req.body.projectId;
+    }
+
+    // Validate that we have a projectId
+    if (!projectId) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+
+    console.log("Parsed projectId:", projectId);
+    // Verify the project exists
+    const project = await storage.getProject(projectId);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+console.log("Project found:", project);
+    // Check if user is the project owner (can't apply to own project)
+    if (project.ownerId === req.user!.id) {
+      return res.status(400).json({ error: "You cannot apply to your own project" });
+    }
+
+    // Check if user has already applied to this project
+    const existingApplications = await storage.getApplications({
+      projectId: projectId,
+      userId: req.user!.id
+    });
+    console.log("Existing applications for user:", existingApplications);
+    if (existingApplications && existingApplications.length > 0) {
+      return res.status(400).json({ error: "You have already applied to this project" });
+    }
+
+    console.log("Creating application for project:", projectId, "by user:", req.user!.id);
+    // Construct the application data with userId from authenticated user
+    const applicationData = {
+      projectId: projectId,
+      userId: req.user!.id, // Always use the authenticated user's ID
+      coverLetter: req.body.coverLetter || req.body.message || '',
+      status: 'submitted'
+    };
+
+
+    console.log("Application data to be validated and created:", applicationData);
+    // Validate with Zod schema
+    const validatedData = insertApplicationSchema.parse(applicationData);
+    
+
+    console.log("Validated application data:", validatedData);
+    // Create the application
+    const application = await storage.createApplication(validatedData);
+    
+
+    console.log("Application created successfully:", application);
+    // Create notification for project owner
     try {
-        // FIX: Extract projectId correctly whether it's a string or an object
-        let projectId = req.body.projectId;
-        if (typeof req.body === 'string') {
-            projectId = req.body; // If the frontend sends the ID as a raw string
-        } else if (typeof req.body.projectId === 'object' && req.body.projectId?.projectId) {
-            projectId = req.body.projectId.projectId; // Unwrap nested object
-        }
+      await storage.createNotification({
+        userId: project.ownerId,
+        type: "application",
+        title: "New Project Application",
+        content: `${req.user!.name || req.user!.fullName || 'Someone'} applied to your project: ${project.title}`,
+        payload: { 
+          applicationId: application.id, 
+          projectId: project.id,
+          applicantId: req.user!.id
+        },
+      });
 
-        // FIX: Construct the payload explicitly to match the schema
-        const applicationData = insertApplicationSchema.parse({
-            projectId: projectId,               // Must be a string
-            userId: req.user!.id,               // Must be provided inside the object
-            coverLetter: req.body.coverLetter || req.body.message || '',
-            status: 'submitted'
-        });
-        
-        const application = await storage.createApplication(applicationData);
-        
-        // Create notification and send email for project owner
-        const project = await storage.getProject(application.projectId);
-        if (project) {
-            await storage.createNotification({
-                userId: project.ownerId,
-                type: "application",
-                title: "New Project Application",
-                content: `${req.user!.name} applied to your project: ${project.title}`,
-                payload: { applicationId: application.id, projectId: project.id },
-            });
-
-            // Send email notification to project owner
-            try {
-                const projectOwner = await storage.getUser(project.ownerId);
-                if (projectOwner?.email) {
-                    const loginUrl = process.env.REPLIT_DOMAINS 
-                        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-                        : 'http://localhost:5000';
-                    
-                    const emailTemplate = emailService.createNewApplicationEmail(
-                        projectOwner.email,
-                        projectOwner.name,
-                        project.title,
-                        req.user!.name,
-                        loginUrl
-                    );
-                    
-                    await emailService.sendEmail(emailTemplate);
-                    console.log(`New application email sent to ${projectOwner.email}`);
-                }
-            } catch (emailError) {
-                console.error('Failed to send new application email:', emailError);
-                // Don't fail the whole request if email fails
-            }
-        }
-        
-        res.status(201).json(application);
-    } catch (error) {
-        console.error('Failed to create application:', error);
-        // Log the actual Zod issues for debugging
-        if (error.issues) console.error('Zod Validation Issues:', error.issues);
-        res.status(400).json({ error: "Invalid application data" });
+      console.log("Notification created for project owner:", project.ownerId);
+    } catch (notificationError) {
+      console.error("Failed to create notification:", notificationError);
+      // Don't fail the request if notification fails
     }
-});
+
+    // Send email notification to project owner
+    try {
+      const projectOwner = await storage.getUser(project.ownerId);
+      if (projectOwner?.email) {
+        const loginUrl = process.env.REPLIT_DOMAINS 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+          : 'http://localhost:5000';
+        
+        // You'll need to implement or import emailService
+        // const emailTemplate = emailService.createNewApplicationEmail(
+        //   projectOwner.email,
+        //   projectOwner.name || projectOwner.fullName || 'User',
+        //   project.title,
+        //   req.user!.name || req.user!.fullName || 'Applicant',
+        //   loginUrl
+        // );
+        // await emailService.sendEmail(emailTemplate);
+        console.log(`New application email would be sent to ${projectOwner.email}`);
+      }
+    } catch (emailError) {
+      console.error('Failed to send new application email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Create activity log
+    try {
+      await storage.createActivity({
+        message: `${req.user!.name || req.user!.fullName || 'Someone'} applied to project "${project.title}"`,
+        actorId: req.user!.id,
+      });
+    } catch (activityError) {
+      console.error("Failed to save project activity:", activityError);
+      // Don't fail the request if activity logging fails
+    }
+
+    res.status(201).json(application);
+  } catch (error) {
+    console.error('Failed to create application:', error);
     
+  // Handle Zod validation errors specifically
+    if (error.issues) {
+      console.error('Zod Validation Issues:', error.issues);
+      return res.status(400).json({ 
+        error: "Invalid application data",
+        details: error.issues 
+      });
+    }
+    
+    // Handle other errors
+    res.status(500).json({ error: "Failed to create application" });
+  }
+});
     
 
   // Update application status

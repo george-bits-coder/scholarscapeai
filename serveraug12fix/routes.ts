@@ -509,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }
-
+console.log(req.body,"request body")
     try {
       const projectId = (req.body && (req.body.projectId || req.body.project?.id)) || '';
       if (!projectId || typeof projectId !== 'string') {
@@ -530,40 +530,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // shared schema available or it may be stricter than the client. Build
       // the minimal application object expected by storage and avoid throwing
       // a 400 from schema parsing here.
-      const applicationData = {
-        id: (req.body && req.body.id) || undefined,
+      const applicationData: any = {
         projectId,
         userId: req.user!.id,
         coverLetter: typeof (req.body && req.body.coverLetter) === 'string' ? req.body.coverLetter : '',
         status: (req.body && req.body.status) || 'submitted',
         reviewNotes: (req.body && req.body.reviewNotes) || '',
       };
+      if (req.body && typeof req.body.id === 'string') {
+        applicationData.id = req.body.id;
+      }
 
       const application = await storage.createApplication(applicationData);
       
-      // Create notification and send email for project owner
-      const notifiedProject = await storage.getProject(application.projectId);
-      if (notifiedProject) {
+      // Create notification and send email for project owner (reuse previously loaded `project`)
+      if (project) {
         await storage.createNotification({
-          userId: notifiedProject.ownerId,
+          userId: project.ownerId,
           type: "application",
           title: "New Project Application",
-          content: `${getDisplayName(req.user!)} applied to your project: ${notifiedProject.title}`,
-          payload: { applicationId: application.id, projectId: notifiedProject.id },
+          content: `${getDisplayName(req.user!)} applied to your project: ${project.title}`,
+          payload: { applicationId: application.id, projectId: project.id },
         });
 
         // Send email notification to project owner
         try {
-const projectOwner = await storage.getUser(notifiedProject.ownerId);
-            if (projectOwner?.email) {
-              const loginUrl = process.env.REPLIT_DOMAINS 
-                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-                : 'http://localhost:5000';
+          const projectOwner = await storage.getUser(project.ownerId);
+          if (projectOwner?.email) {
+            const loginUrl = process.env.REPLIT_DOMAINS 
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+              : 'http://localhost:5000';
             
             const emailTemplate = emailService.createNewApplicationEmail(
               projectOwner.email,
               projectOwner.name,
-              notifiedProject.title,
+              project.title,
               getDisplayName(req.user!),
               loginUrl
             );
@@ -840,8 +841,8 @@ const projectOwner = await storage.getUser(notifiedProject.ownerId);
         })
       );
 
-      // sort by createdAt ascending
-      threadWithSenders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+      // sort by createdAt ascending (handle Date | string | undefined)
+      threadWithSenders.sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
       res.json(threadWithSenders);
     } catch (error) {
       console.error('Error fetching conversation thread:', error);
@@ -1408,7 +1409,7 @@ const projectOwner = await storage.getUser(notifiedProject.ownerId);
 
       // Create shares for each user
       const shares = await Promise.all(
-        userIds.map(userId => 
+        userIds.map((userId: string) => 
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1421,7 +1422,7 @@ const projectOwner = await storage.getUser(notifiedProject.ownerId);
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(async userId => {
+        userIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1458,7 +1459,7 @@ const projectOwner = await storage.getUser(notifiedProject.ownerId);
 
       // Send emails to external email addresses
       await Promise.all(
-        emails.map(async email => {
+        emails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
@@ -1673,13 +1674,17 @@ const projectOwner = await storage.getUser(notifiedProject.ownerId);
 
       const post = await storage.getFeedPost(req.params.postId);
       if (post && post.authorId && post.authorId !== req.user!.id) {
-        await storage.createNotification({
-          userId: post.authorId,
-          type: "feed_comment",
-          title: "New comment on your post",
-          content: `${getDisplayName(req.user!)} commented on your post`,
-          payload: { postId: req.params.postId, commentId: comment.id },
-        });
+        try {
+          await storage.createNotification({
+            userId: post.authorId,
+            type: "feed_comment",
+            title: "New comment on your post",
+            content: `${getDisplayName(req.user!)} commented on your post`,
+            payload: { postId: req.params.postId, commentId: comment.id },
+          });
+        } catch (notificationError) {
+          console.error('Failed to create feed comment notification:', notificationError);
+        }
       }
 
       res.status(201).json(comment);

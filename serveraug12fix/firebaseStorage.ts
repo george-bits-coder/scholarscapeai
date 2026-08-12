@@ -25,6 +25,7 @@
   InsertUserInterests,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
+import type { Activity, InsertActivity, LiveEvent, InsertLiveEvent } from "./storage";
 import {
   createFirebaseId,
   firebaseRootRef,
@@ -36,13 +37,14 @@ import {
   setValue,
 } from "./firebase";
 
-function nowIso(): string {
-  return new Date().toISOString();
+function nowIso(): Date {
+  return new Date();
 }
 
-function formatRelativeTime(iso?: string): string {
+function formatRelativeTime(iso?: string | Date | null): string {
   if (!iso) return "just now";
-  const diffMs = Date.now() - new Date(iso).getTime();
+  const date = typeof iso === "string" ? new Date(iso) : iso;
+  const diffMs = Date.now() - (date ? new Date(date).getTime() : 0);
   const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
   if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
   const diffHours = Math.floor(diffMinutes / 60);
@@ -92,7 +94,10 @@ export class FirebaseStorage implements IStorage {
   }
 
   private async saveItem<T extends Record<string, any>>(path: string, id: string, item: T): Promise<T & { id: string }> {
-    await setValue(`${path}/${id}`, item);
+    // Ensure no `undefined` values are sent to Realtime Database by
+    // serializing then parsing the object (this drops undefined fields).
+    const toSave = JSON.parse(JSON.stringify({ ...item, id }));
+    await setValue(`${path}/${id}`, toSave);
     return ensureId<T>(item, id);
   }
 
@@ -113,11 +118,12 @@ export class FirebaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = insertUser.id || createFirebaseId();
+    const iu = insertUser as unknown as any;
+    const id = iu.id || createFirebaseId();
     const user: any = {
-      ...insertUser,
-      verified: insertUser.verified ?? false,
-      rating: insertUser.rating ?? "0.0",
+      ...iu,
+      verified: iu.verified ?? false,
+      rating: iu.rating ?? "0.0",
       createdAt: nowIso(),
     };
     return this.saveItem<User>("users", id, user);
@@ -147,13 +153,14 @@ export class FirebaseStorage implements IStorage {
     if (filters?.status) {
       projects = projects.filter((project) => project.status === filters.status);
     }
-    return projects.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return projects.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const id = insertProject.id || createFirebaseId();
+    const ip = insertProject as unknown as any;
+    const id = ip.id || createFirebaseId();
     const project: any = {
-      ...insertProject,
+      ...ip,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -172,13 +179,14 @@ export class FirebaseStorage implements IStorage {
     if (filters?.status) {
       events = events.filter((event) => (event as any).status === filters.status);
     }
-    return events.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return events.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createLiveEvent(insertEvent: InsertLiveEvent): Promise<LiveEvent> {
-    const id = insertEvent.id || createFirebaseId();
+    const ie = insertEvent as unknown as any;
+    const id = ie.id || createFirebaseId();
     const event: any = {
-      ...insertEvent,
+      ...ie,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -222,7 +230,7 @@ export class FirebaseStorage implements IStorage {
   async getRecentActivities(limit = 10): Promise<Activity[]> {
     const activities = await this.listItems<Activity>("activities");
     return activities
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
       .slice(0, limit);
   }
 
@@ -252,7 +260,7 @@ export class FirebaseStorage implements IStorage {
     const likedByUserIds = Array.isArray(existing.likedByUserIds) ? existing.likedByUserIds : [];
     const alreadyLiked = likedByUserIds.includes(userId);
     const nextLikedByUserIds = alreadyLiked
-      ? likedByUserIds.filter((id) => id !== userId)
+      ? likedByUserIds.filter((id: string) => id !== userId)
       : [...likedByUserIds, userId];
 
     const updated = {
@@ -271,7 +279,7 @@ export class FirebaseStorage implements IStorage {
     const comments = await this.listItems<any>("feedComments");
     const filtered = comments
       .filter((comment) => comment.postId === postId)
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
 
     return Promise.all(
       filtered.map(async (comment) => {
@@ -280,11 +288,11 @@ export class FirebaseStorage implements IStorage {
           ...comment,
           author: {
             id: author?.id,
-            name: author?.fullName || author?.name || "Unknown",
-            avatar: getInitials(author?.fullName || author?.name),
+            name: author?.name || "Unknown",
+            avatar: getInitials(author?.name),
             title: author?.role || "Member",
             university: author?.affiliation || "ScholarScape",
-          },
+              },
           timestamp: formatRelativeTime(comment.createdAt),
         };
       }),
@@ -327,8 +335,8 @@ export class FirebaseStorage implements IStorage {
       ...feedComment,
       author: {
         id: author?.id,
-        name: author?.fullName || author?.name || 'Unknown',
-        avatar: getInitials(author?.fullName || author?.name),
+        name: author?.name || 'Unknown',
+        avatar: getInitials(author?.name),
         title: author?.role || 'Member',
         university: author?.affiliation || 'ScholarScape',
       },
@@ -337,7 +345,8 @@ export class FirebaseStorage implements IStorage {
   }
 
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
-    const id = insertActivity.id || createFirebaseId();
+    const ia = insertActivity as unknown as any;
+    const id = ia.id || createFirebaseId();
     const activity: any = {
       ...insertActivity,
       createdAt: nowIso(),
@@ -375,11 +384,12 @@ export class FirebaseStorage implements IStorage {
     if (filters?.status) {
       opportunities = opportunities.filter((opportunity) => opportunity.status === filters.status);
     }
-    return opportunities.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return opportunities.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createOpportunity(insertOpportunity: InsertOpportunity): Promise<Opportunity> {
-    const id = insertOpportunity.id || createFirebaseId();
+    const io = insertOpportunity as unknown as any;
+    const id = io.id || createFirebaseId();
     const opportunity: any = {
       ...insertOpportunity,
       createdAt: nowIso(),
@@ -418,15 +428,16 @@ export class FirebaseStorage implements IStorage {
     if (filters?.userId) {
       applications = applications.filter((application) => application.userId === filters.userId);
     }
-    return applications.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return applications.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createApplication(insertApplication: InsertApplication): Promise<Application> {
-    const id = insertApplication.id || createFirebaseId();
+    const iax = insertApplication as unknown as any;
+    const id = iax.id || createFirebaseId();
     const application: any = {
-      ...insertApplication,
-      status: insertApplication.status || 'submitted',
-      reviewNotes: insertApplication.reviewNotes || '',
+      ...iax,
+      status: iax.status || 'submitted',
+      reviewNotes: iax.reviewNotes || '',
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -461,11 +472,12 @@ export class FirebaseStorage implements IStorage {
     if (filters.projectId) {
       messages = messages.filter((message) => message.projectId === filters.projectId);
     }
-    return messages.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return messages.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const id = insertMessage.id || createFirebaseId();
+    const im = insertMessage as unknown as any;
+    const id = im.id || createFirebaseId();
     const message: any = {
       ...insertMessage,
       createdAt: nowIso(),
@@ -490,11 +502,12 @@ export class FirebaseStorage implements IStorage {
         return filters.tags!.some((tag) => grantTags.includes(tag));
       });
     }
-    return grants.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return grants.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createGrant(insertGrant: InsertGrant): Promise<Grant> {
-    const id = insertGrant.id || createFirebaseId();
+    const ig = insertGrant as unknown as any;
+    const id = ig.id || createFirebaseId();
     const grant: any = {
       ...insertGrant,
       createdAt: nowIso(),
@@ -505,11 +518,12 @@ export class FirebaseStorage implements IStorage {
   async getNotifications(userId: string): Promise<Notification[]> {
     let notifications = await this.listItems<Notification>("notifications");
     notifications = notifications.filter((notification) => notification.userId === userId);
-    return notifications.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return notifications.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const id = insertNotification.id || createFirebaseId();
+    const inot = insertNotification as unknown as any;
+    const id = inot.id || createFirebaseId();
     const notification: any = {
       ...insertNotification,
       createdAt: nowIso(),
@@ -571,7 +585,7 @@ export class FirebaseStorage implements IStorage {
         return { ...application, user, project };
       })
       .filter((item): item is Application & { user: User; project: Project } => item !== null)
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async updateApplicationStatus(applicationId: string, status: string, reviewNotes?: string): Promise<Application> {
@@ -601,7 +615,7 @@ export class FirebaseStorage implements IStorage {
         ...comment,
         user: userMap.get(comment.userId),
       }))
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async createApplicationComment(comment: any): Promise<any> {
@@ -648,7 +662,7 @@ export class FirebaseStorage implements IStorage {
 
     return members
       .map((member) => ({ ...member, user: userMap.get(member.userId) as User }))
-      .sort((a, b) => (a.joinedAt || "").localeCompare(b.joinedAt || ""));
+      .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0));
   }
 
   async getChatMessages(chatId: string, limit: number = 100): Promise<(ProjectChatMessage & { sender: User })[]> {
@@ -659,24 +673,26 @@ export class FirebaseStorage implements IStorage {
     const userMap = new Map(users.map((user) => [user.id, user]));
 
     return messages
-      .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""))
+      .sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0))
       .slice(-limit)
       .map((message) => ({ ...message, sender: userMap.get(message.senderId) as User }));
   }
 
   async createChatMessage(message: InsertProjectChatMessage): Promise<ProjectChatMessage> {
-    const id = message.id || createFirebaseId();
+    const m = message as unknown as any;
+    const id = m.id || createFirebaseId();
     const storedMessage: any = {
-      ...message,
+      ...m,
       createdAt: nowIso(),
     };
     return this.saveItem<ProjectChatMessage>("projectChatMessages", id, storedMessage);
   }
 
   async shareProject(share: InsertProjectShare): Promise<ProjectShare> {
-    const id = share.id || createFirebaseId();
+    const s = share as unknown as any;
+    const id = s.id || createFirebaseId();
     const storedShare: any = {
-      ...share,
+      ...s,
       createdAt: nowIso(),
     };
     return this.saveItem<ProjectShare>("projectShares", id, storedShare);
@@ -698,7 +714,7 @@ export class FirebaseStorage implements IStorage {
         sharedBy: userMap.get(share.sharedById) as User,
       }))
       .filter((item) => item.project && item.sharedBy)
-      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   }
 
   async updateShareStatus(shareId: string, status: string): Promise<ProjectShare> {
@@ -794,7 +810,7 @@ export class FirebaseStorage implements IStorage {
 
         if (project.requiredSkills?.length && student.skills?.length) {
           const skillMatches = project.requiredSkills.filter((skill) =>
-            student.skills.some((userSkill) => userSkill.toLowerCase().includes(skill.toLowerCase())),
+            (student.skills || []).some((userSkill) => userSkill.toLowerCase().includes(skill.toLowerCase())),
           );
           matchScore += (skillMatches.length / project.requiredSkills.length) * 50;
         }
@@ -877,14 +893,14 @@ export class FirebaseStorage implements IStorage {
           createdAt: project.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.fullName || owner?.name || "Unknown",
+            name: owner?.name || "Unknown",
             title: owner?.role || "Researcher",
-            avatar: getInitials(owner?.fullName || owner?.name),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(project.createdAt),
           content: `${project.title}: ${project.description || "New research opportunity"}`,
-          image: project.posterUrl || null,
+          image: project.flyerUrl || null,
           likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 500)),
           comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 50)),
           shares: Number(postMeta?.shares || Math.floor(Math.random() * 30)),
@@ -902,9 +918,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: event.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.fullName || owner?.name || "Unknown",
+            name: owner?.name || "Unknown",
             title: owner?.role || "Organizer",
-            avatar: getInitials(owner?.fullName || owner?.name),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(event.createdAt),
@@ -917,7 +933,7 @@ export class FirebaseStorage implements IStorage {
         });
       }
 
-      for (const post of feedPosts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))) {
+      for (const post of feedPosts.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))) {
         const author = await this.getUser(post.authorId);
         const likedByUserIds = Array.isArray(post.likedByUserIds) ? post.likedByUserIds : [];
         feedItems.push({
@@ -926,9 +942,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: post.createdAt || nowIso(),
           author: {
             id: author?.id,
-            name: author?.fullName || author?.name || "Unknown",
+            name: author?.name || "Unknown",
             title: author?.role || "Member",
-            avatar: getInitials(author?.fullName || author?.name),
+            avatar: getInitials(author?.name),
             university: author?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(post.createdAt),
@@ -941,7 +957,7 @@ export class FirebaseStorage implements IStorage {
         });
       }
 
-      return feedItems.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return feedItems.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
     } catch (error) {
       console.error("Error fetching feed:", error);
       return [];

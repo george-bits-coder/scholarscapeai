@@ -404,6 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/applications", async (req, res) => {
+    console.log("inside api/applications POST route")
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }

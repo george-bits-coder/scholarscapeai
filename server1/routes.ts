@@ -407,17 +407,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }
-
+console.log(req.body,"request body")
     try {
       const applicationData = insertApplicationSchema.parse({
         ...req.body,
         userId: req.user!.id,
       });
-      
+console.log(applicationData,"application data")
       const application = await storage.createApplication(applicationData);
-      
+      console.log(application,"application created")
       // Create notification and send email for project owner
       const project = await storage.getProject(application.projectId);
+
+      console.log(project,"project details")
       if (project) {
         await storage.createNotification({
           userId: project.ownerId,
@@ -426,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: `${req.user!.name} applied to your project: ${project.title}`,
           payload: { applicationId: application.id, projectId: project.id },
         });
-
+console.log("Notification created for project owner");
         // Send email notification to project owner
         try {
           const projectOwner = await storage.getUser(project.ownerId);

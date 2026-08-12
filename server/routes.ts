@@ -507,83 +507,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/applications", async (req, res) => {
     if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
+        return res.status(401).json({ error: "Authentication required" });
     }
+    
+    console.log(req.body, "request body");
 
     try {
-      const projectId = (req.body && (req.body.projectId || req.body.project?.id)) || '';
-      if (!projectId || typeof projectId !== 'string') {
-        return res.status(400).json({ error: 'projectId is required' });
-      }
-
-      const project = await storage.getProject(projectId);
-      if (!project) {
-        return res.status(404).json({ error: 'Project not found' });
-      }
-
-      // Prevent owners from applying to their own project
-      if (project.ownerId && project.ownerId === req.user!.id) {
-        return res.status(400).json({ error: 'You cannot apply to your own project' });
-      }
-
-      // Lightweight validation/fallback: some deployments may not have the
-      // shared schema available or it may be stricter than the client. Build
-      // the minimal application object expected by storage and avoid throwing
-      // a 400 from schema parsing here.
-      const applicationData = {
-        id: (req.body && req.body.id) || undefined,
-        projectId,
-        userId: req.user!.id,
-        coverLetter: typeof (req.body && req.body.coverLetter) === 'string' ? req.body.coverLetter : '',
-        status: (req.body && req.body.status) || 'submitted',
-        reviewNotes: (req.body && req.body.reviewNotes) || '',
-      };
-
-      const application = await storage.createApplication(applicationData);
-      
-      // Create notification and send email for project owner
-      const notifiedProject = await storage.getProject(application.projectId);
-      if (notifiedProject) {
-        await storage.createNotification({
-          userId: notifiedProject.ownerId,
-          type: "application",
-          title: "New Project Application",
-          content: `${getDisplayName(req.user!)} applied to your project: ${notifiedProject.title}`,
-          payload: { applicationId: application.id, projectId: notifiedProject.id },
+        // Use schema validation - this handles ID generation
+        const applicationData = insertApplicationSchema.parse({
+            ...req.body,
+            userId: req.user!.id,
         });
+        
+        const application = await storage.createApplication(applicationData);
+        
+        // Create notification and send email for project owner
+        const project = await storage.getProject(application.projectId);
+        if (project) {
+            await storage.createNotification({
+                userId: project.ownerId,
+                type: "application",
+                title: "New Project Application",
+                content: `${req.user!.name} applied to your project: ${project.title}`,
+                payload: { applicationId: application.id, projectId: project.id },
+            });
 
-        // Send email notification to project owner
-        try {
-const projectOwner = await storage.getUser(notifiedProject.ownerId);
-            if (projectOwner?.email) {
-              const loginUrl = process.env.REPLIT_DOMAINS 
-                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-                : 'http://localhost:5000';
-            
-            const emailTemplate = emailService.createNewApplicationEmail(
-              projectOwner.email,
-              projectOwner.name,
-              notifiedProject.title,
-              getDisplayName(req.user!),
-              loginUrl
-            );
-            
-            await emailService.sendEmail(emailTemplate);
-            console.log(`New application email sent to ${projectOwner.email}`);
-          }
-        } catch (emailError) {
-          console.error('Failed to send new application email:', emailError);
-          // Don't fail the whole request if email fails
+            // Send email notification to project owner
+            try {
+                const projectOwner = await storage.getUser(project.ownerId);
+                if (projectOwner?.email) {
+                    const loginUrl = process.env.REPLIT_DOMAINS 
+                        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                        : 'http://localhost:5000';
+                    
+                    const emailTemplate = emailService.createNewApplicationEmail(
+                        projectOwner.email,
+                        projectOwner.name,
+                        project.title,
+                        req.user!.name,
+                        loginUrl
+                    );
+                    
+                    await emailService.sendEmail(emailTemplate);
+                    console.log(`New application email sent to ${projectOwner.email}`);
+                }
+            } catch (emailError) {
+                console.error('Failed to send new application email:', emailError);
+                // Don't fail the whole request if email fails
+            }
         }
-      }
-      
-      res.status(201).json(application);
+        
+        res.status(201).json(application);
     } catch (error) {
-      console.error('Failed to create application:', error instanceof Error ? error.message : error);
-      const msg = error instanceof Error ? error.message : 'Invalid application data';
-      res.status(400).json({ error: msg });
+        console.error('Failed to create application:', error);
+        res.status(400).json({ error: "Invalid application data" });
     }
-  });
+});
 
   // Update application status
   app.put("/api/applications/:id/status", async (req, res) => {

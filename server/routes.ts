@@ -681,6 +681,8 @@ console.log("Application data to be validated and created:", applicationData)
     
 
   // Update application status
+
+    // Update application status
   app.put("/api/applications/:id/status", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -705,18 +707,25 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(403).json({ error: "Not authorized to update this application" });
       }
 
-      const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
-      
+      // --- FIX STARTS HERE ---
       // If application is approved, create or get project chat and add the applicant
       if (status === 'approved') {
-        let chat = await storage.getProjectChat(project.id);
-        if (!chat) {
-          chat = await storage.createProjectChat(project.id, project.ownerId);
+        // Wrap chat creation in try/catch so it doesn't throw a 500 error if it fails
+        try {
+          let chat = await storage.getProjectChat(project.id);
+          if (!chat) {
+            chat = await storage.createProjectChat(project.id, project.ownerId);
+          }
+          // Add the approved applicant to the chat
+          await storage.addChatMember(chat.id, application.userId, "member");
+        } catch (chatError) {
+          console.error("Failed to create chat for approved applicant, but application is still approved:", chatError);
+          // We intentionally DO NOT return an error here. The application is approved successfully.
         }
-        
-        // Add the approved applicant to the chat
-        await storage.addChatMember(chat.id, application.userId, "member");
       }
+      // --- FIX ENDS HERE ---
+      
+      const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
       
       // Create notification and send email for applicant
       await storage.createNotification({
@@ -727,7 +736,7 @@ console.log("Application data to be validated and created:", applicationData)
         payload: { applicationId: application.id, projectId: project.id },
       });
 
-      // Send email notification to applicant
+      // Send email notification to applicant (if enabled)
       try {
         const applicant = await storage.getUser(application.userId);
         if (applicant?.email) {
@@ -743,7 +752,6 @@ console.log("Application data to be validated and created:", applicationData)
             reviewNotes,
             loginUrl
           );
-          
           await emailService.sendEmail(emailTemplate);
           console.log(`Email sent to ${applicant.email} for application status: ${status}`);
         }

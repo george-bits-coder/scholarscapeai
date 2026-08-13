@@ -577,14 +577,28 @@ app.post("/api/applications", async (req, res) => {
       console.log("Could not check existing applications, continuing:", error.message);
     }
 
-    // Construct the application data with userId from authenticated user
-    const applicationData = {
-      projectId: projectId,
-      userId: userId, // Use the extracted user ID
-      coverLetter: req.body.coverLetter || req.body.message || '',
-      status: 'submitted'
-    };
 
+
+    let coverLetter = '';
+if (typeof req.body === 'string') {
+  coverLetter = ''; // No cover letter when only ID is sent
+} else if (req.body.coverLetter && typeof req.body.coverLetter === 'object' && req.body.coverLetter.coverLetter) {
+  coverLetter = req.body.coverLetter.coverLetter;
+} else if (typeof req.body.coverLetter === 'string') {
+  coverLetter = req.body.coverLetter;
+} else if (typeof req.body.message === 'string') {
+  coverLetter = req.body.message;
+}
+    // Construct the application data with userId from authenticated user
+  
+const applicationData = {
+  projectId: projectId,
+  userId: userId,
+  coverLetter: coverLetter.trim(), // Ensure it's trimmed
+  status: 'submitted'
+};
+
+console.log("Application data to be validated and created:", applicationData)
     console.log("Application data to be validated and created:", applicationData);
 
     // Validate with Zod schema

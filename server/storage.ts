@@ -48,6 +48,7 @@ export interface LiveEvent {
   link: string;
   ownerId: string;
   shareUrl?: string;
+  posterUrl?: string | null; // ✅ Added posterUrl
   createdAt?: string;
   updatedAt?: string;
 }
@@ -62,6 +63,7 @@ export interface InsertLiveEvent {
   ownerId: string;
   status?: string;
   shareUrl?: string;
+  posterUrl?: string | null; // ✅ Added posterUrl
 }
 
 export interface IStorage {

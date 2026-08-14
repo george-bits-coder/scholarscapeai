@@ -26,7 +26,7 @@
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
-// --- FIX: Add missing interfaces that routes.ts expects ---
+// --- LiveEvent interfaces with posterUrl ---
 export interface LiveEvent {
   id: string;
   title: string;
@@ -37,6 +37,7 @@ export interface LiveEvent {
   link: string;
   ownerId: string;
   shareUrl?: string;
+  posterUrl?: string | null; // ✅ Added posterUrl
   createdAt?: string;
   updatedAt?: string;
 }
@@ -51,6 +52,7 @@ export interface InsertLiveEvent {
   ownerId: string;
   status?: string;
   shareUrl?: string;
+  posterUrl?: string | null; // ✅ Added posterUrl
 }
 
 export interface Activity {
@@ -216,10 +218,20 @@ export class FirebaseStorage implements IStorage {
     return events.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   }
 
+  // ✅ UPDATED: Save posterUrl to Firebase
   async createLiveEvent(insertEvent: InsertLiveEvent): Promise<LiveEvent> {
     const id = insertEvent.id || createFirebaseId();
     const event: any = {
-      ...insertEvent,
+      id,
+      title: insertEvent.title,
+      description: insertEvent.description || '',
+      date: insertEvent.date,
+      time: insertEvent.time,
+      platform: insertEvent.platform,
+      link: insertEvent.link,
+      ownerId: insertEvent.ownerId,
+      posterUrl: insertEvent.posterUrl || null, // ✅ Save posterUrl
+      shareUrl: insertEvent.shareUrl || `/events/${id}`,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -321,7 +333,7 @@ export class FirebaseStorage implements IStorage {
           ...comment,
           author: {
             id: author?.id,
-            name: author?.name || "Unknown", // FIX: changed fullName to name
+            name: author?.name || "Unknown",
             avatar: getInitials(author?.name),
             title: author?.role || "Member",
             university: author?.affiliation || "ScholarScape",
@@ -368,7 +380,7 @@ export class FirebaseStorage implements IStorage {
       ...feedComment,
       author: {
         id: author?.id,
-        name: author?.name || 'Unknown', // FIX: changed fullName to name
+        name: author?.name || 'Unknown',
         avatar: getInitials(author?.name),
         title: author?.role || 'Member',
         university: author?.affiliation || 'ScholarScape',
@@ -918,7 +930,7 @@ export class FirebaseStorage implements IStorage {
           createdAt: project.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.name || "Unknown", // FIX: fullName -> name
+            name: owner?.name || "Unknown",
             title: owner?.role || "Researcher",
             avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
@@ -943,14 +955,14 @@ export class FirebaseStorage implements IStorage {
           createdAt: event.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.name || "Unknown", // FIX: fullName -> name
+            name: owner?.name || "Unknown",
             title: owner?.role || "Organizer",
             avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(event.createdAt),
           content: `New event: ${event.title} on ${event.date}`,
-          image: null,
+          image: event.posterUrl || null, // ✅ FIX: Added posterUrl here too
           likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 300)),
           comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 40)),
           shares: Number(postMeta?.shares || Math.floor(Math.random() * 20)),
@@ -967,7 +979,7 @@ export class FirebaseStorage implements IStorage {
           createdAt: post.createdAt || nowIso(),
           author: {
             id: author?.id,
-            name: author?.name || "Unknown", // FIX: fullName -> name
+            name: author?.name || "Unknown",
             title: author?.role || "Member",
             avatar: getInitials(author?.name),
             university: author?.affiliation || "ScholarScape",

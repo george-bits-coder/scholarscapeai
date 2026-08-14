@@ -113,29 +113,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ UPDATED: Block students and accept posterUrl
   app.post("/api/events", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const { title, description, date, time, platform, link } = req.body;
+    // ✅ Block students from creating events
+    if (String(req.user!.role || '').toLowerCase() === 'student') {
+      return res.status(403).json({ error: "Students are not allowed to create live events" });
+    }
+
+    // ✅ Accept posterUrl from the request body
+    const { title, description, date, time, platform, link, posterUrl } = req.body;
     if (!title || !date || !time || !platform || !link) {
       return res.status(400).json({ error: "Missing required event fields" });
     }
 
     try {
+      // ✅ Pass posterUrl to storage
       const event = await storage.createLiveEvent({
         title,
-        description,
+        description: description || '',
         date,
         time,
         platform,
         link,
+        posterUrl: posterUrl || null, // ✅ Store the image URL in DB
         ownerId: req.user!.id,
       });
+      
       const eventWithShareUrl = await storage.updateLiveEvent(event.id, {
         shareUrl: `/events/${event.id}`,
       } as any);
+      
       try {
         await storage.createActivity({
           message: `Scheduled live event "${eventWithShareUrl.title}"`,

@@ -204,7 +204,12 @@ export class FirebaseStorage implements IStorage {
   }
 
   async getLiveEvent(id: string): Promise<LiveEvent | undefined> {
-    return this.getItem<LiveEvent>("liveEvents", id);
+    const event = await this.getItem<LiveEvent>("liveEvents", id);
+    if (!event) return undefined;
+
+    // ✅ Check if there are any attendees saved for this event to append to the object if needed
+    const attendees = await this.getLiveEventRegistrations(id);
+    return { ...event, attendeeCount: attendees.length };
   }
 
   async getLiveEvents(filters?: { ownerId?: string; status?: string }): Promise<LiveEvent[]> {
@@ -218,7 +223,6 @@ export class FirebaseStorage implements IStorage {
     return events.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   }
 
-  // ✅ UPDATED: Save posterUrl to Firebase
   async createLiveEvent(insertEvent: InsertLiveEvent): Promise<LiveEvent> {
     const id = insertEvent.id || createFirebaseId();
     const event: any = {
@@ -230,7 +234,7 @@ export class FirebaseStorage implements IStorage {
       platform: insertEvent.platform,
       link: insertEvent.link,
       ownerId: insertEvent.ownerId,
-      posterUrl: insertEvent.posterUrl || null, // ✅ Save posterUrl
+      posterUrl: insertEvent.posterUrl || null,
       shareUrl: insertEvent.shareUrl || `/events/${id}`,
       createdAt: nowIso(),
       updatedAt: nowIso(),
@@ -263,13 +267,17 @@ export class FirebaseStorage implements IStorage {
 
   async registerForLiveEvent(eventId: string, userId: string): Promise<{ attendeeCount: number; registered: boolean; attendees: string[] }> {
     const existing = await this.getLiveEventRegistrations(eventId);
+    
+    // If user is already registered, return true
     if (existing.includes(userId)) {
       return { attendeeCount: existing.length, registered: true, attendees: existing };
     }
 
     const attendees = [...existing, userId];
     await setValue(`liveEventRegistrations/${eventId}`, attendees);
-    return { attendeeCount: attendees.length, registered: false, attendees };
+    
+    // ✅ CRITICAL FIX: return registered: true on success
+    return { attendeeCount: attendees.length, registered: true, attendees };
   }
 
   async getRecentActivities(limit = 10): Promise<Activity[]> {
@@ -279,13 +287,12 @@ export class FirebaseStorage implements IStorage {
       .slice(0, limit);
   }
 
-  // ✅ UPDATED: Ensure authorId is saved properly and returned
   async createFeedPost(post: any): Promise<any> {
     const id = post.id || createFirebaseId();
     const feedPost = {
       ...post,
       id,
-      authorId: post.authorId, // Ensure authorId is explicitly saved
+      authorId: post.authorId,
       createdAt: post.createdAt || nowIso(),
       likeCount: 0,
       likedByUserIds: [],
@@ -322,7 +329,6 @@ export class FirebaseStorage implements IStorage {
     return updated;
   }
 
-  // ✅ UPDATED: Fetch comments and enrich with author data
   async getFeedComments(postId: string): Promise<any[]> {
     const comments = await this.listItems<any>("feedComments");
     const filtered = comments
@@ -347,12 +353,10 @@ export class FirebaseStorage implements IStorage {
     );
   }
 
-  // ✅ UPDATED: Enrich feed post with author data
   async getFeedPost(postId: string): Promise<any | undefined> {
     const post = await this.getItem<any>("feedPosts", postId);
     if (!post) return undefined;
     
-    // Enrich with author data
     const author = await this.getUser(post.authorId);
     return {
       ...post,
@@ -367,7 +371,6 @@ export class FirebaseStorage implements IStorage {
     };
   }
 
-  // ✅ UPDATED: Ensure comment returns author data correctly
   async createFeedComment(postId: string, comment: any): Promise<any> {
     const id = comment.id || createFirebaseId();
     const feedComment = {
@@ -596,7 +599,6 @@ export class FirebaseStorage implements IStorage {
     await setValue(`notifications/${id}`, { ...existing, readAt: nowIso() });
   }
 
-  // ✅ UPDATED: Added logging to debug student role fetching
   async getUsersByRole(role: string): Promise<User[]> {
     let users = await this.listItems<User>("users");
     const filtered = users.filter((user) => user.role === role);
@@ -606,7 +608,6 @@ export class FirebaseStorage implements IStorage {
 
   async getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]> {
     const applications = await this.getApplications({ projectId });
-    // Exclude applications that were rejected or ignored so owners see only active applicants
     const visible = applications.filter((app) => app.status !== 'rejected' && app.status !== 'ignored');
     return await Promise.all(
       visible.map(async (application) => {
@@ -631,7 +632,6 @@ export class FirebaseStorage implements IStorage {
   async getApplicationsForProjectOwner(ownerId: string): Promise<(Application & { user: User; project: Project })[]> {
     const ownedProjects = await this.getProjects({ ownerId });
     const projectIdSet = new Set(ownedProjects.map((project) => project.id));
-    // Only include applications for owned projects and exclude rejected/ignored ones
     const applications = (await this.listItems<Application>("applications")).filter((application) =>
       projectIdSet.has(application.projectId) && application.status !== 'rejected' && application.status !== 'ignored',
     );
@@ -932,7 +932,6 @@ export class FirebaseStorage implements IStorage {
       .slice(0, 20);
   }
 
-  // ✅ UPDATED: Completely revised to fetch author data properly
   async getFeed(userId: string): Promise<any[]> {
     try {
       const [projects, events, feedPosts] = await Promise.all([
@@ -1002,7 +1001,6 @@ export class FirebaseStorage implements IStorage {
 
       // Add Feed Posts to Feed
       for (const post of feedPosts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))) {
-        // ✅ CRITICAL FIX: Fetch author explicitly here
         const author = await this.getUser(post.authorId);
         const likedByUserIds = Array.isArray(post.likedByUserIds) ? post.likedByUserIds : [];
         

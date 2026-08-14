@@ -25,6 +25,47 @@
   InsertUserInterests,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
+
+// --- FIX: Add missing interfaces that routes.ts expects ---
+export interface LiveEvent {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  platform: string;
+  link: string;
+  ownerId: string;
+  shareUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InsertLiveEvent {
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  platform: string;
+  link: string;
+  ownerId: string;
+  status?: string;
+  shareUrl?: string;
+}
+
+export interface Activity {
+  id: string;
+  message: string;
+  actorId?: string;
+  createdAt?: string;
+}
+
+export interface InsertActivity {
+  message: string;
+  actorId?: string;
+}
+// --------------------------------------------------------
+
 import {
   createFirebaseId,
   firebaseRootRef,
@@ -280,8 +321,8 @@ export class FirebaseStorage implements IStorage {
           ...comment,
           author: {
             id: author?.id,
-            name: author?.fullName || author?.name || "Unknown",
-            avatar: getInitials(author?.fullName || author?.name),
+            name: author?.name || "Unknown", // FIX: changed fullName to name
+            avatar: getInitials(author?.name),
             title: author?.role || "Member",
             university: author?.affiliation || "ScholarScape",
           },
@@ -327,8 +368,8 @@ export class FirebaseStorage implements IStorage {
       ...feedComment,
       author: {
         id: author?.id,
-        name: author?.fullName || author?.name || 'Unknown',
-        avatar: getInitials(author?.fullName || author?.name),
+        name: author?.name || 'Unknown', // FIX: changed fullName to name
+        avatar: getInitials(author?.name),
         title: author?.role || 'Member',
         university: author?.affiliation || 'ScholarScape',
       },
@@ -877,9 +918,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: project.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.fullName || owner?.name || "Unknown",
+            name: owner?.name || "Unknown", // FIX: fullName -> name
             title: owner?.role || "Researcher",
-            avatar: getInitials(owner?.fullName || owner?.name),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(project.createdAt),
@@ -902,9 +943,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: event.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: owner?.fullName || owner?.name || "Unknown",
+            name: owner?.name || "Unknown", // FIX: fullName -> name
             title: owner?.role || "Organizer",
-            avatar: getInitials(owner?.fullName || owner?.name),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(event.createdAt),
@@ -926,9 +967,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: post.createdAt || nowIso(),
           author: {
             id: author?.id,
-            name: author?.fullName || author?.name || "Unknown",
+            name: author?.name || "Unknown", // FIX: fullName -> name
             title: author?.role || "Member",
-            avatar: getInitials(author?.fullName || author?.name),
+            avatar: getInitials(author?.name),
             university: author?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(post.createdAt),

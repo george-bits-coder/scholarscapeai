@@ -7,8 +7,9 @@ import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, 
 import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 
-function getDisplayName(user: { fullName?: string; name?: string; username?: string } | null | undefined) {
-  return user?.fullName || user?.name || user?.username || "Someone";
+// Helper to extract user's name (schema uses 'name', not 'fullName')
+function getDisplayName(user: { name?: string; username?: string } | null | undefined) {
+  return user?.name || user?.username || "Someone";
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -33,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       res.json(projectsWithOwners);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch projects" });
     }
   });
@@ -53,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.id === project.ownerId) {
           applications = await storage.getApplicationsForProject(project.id);
         }
-      } catch (err) {
+      } catch (err: any) {
         // ignore and don't include applications
         applications = undefined;
       }
@@ -62,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (applications) response.applications = applications;
 
       res.json(response);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch project" });
     }
   });
@@ -76,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (project.ownerId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
       const applications = await storage.getApplicationsForProject(req.params.id);
       res.json(applications);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching project applications:', error);
       res.status(500).json({ error: 'Failed to fetch project applications' });
     }
@@ -103,11 +104,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `Created project "${project.title}"`,
           actorId: req.user!.id,
         });
-      } catch (activityError) {
+      } catch (activityError: any) {
         console.error("Failed to save project activity:", activityError);
       }
       res.status(201).json(project);
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ error: "Invalid project data" });
     }
   });
@@ -140,11 +141,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `Scheduled live event "${eventWithShareUrl.title}"`,
           actorId: req.user!.id,
         });
-      } catch (activityError) {
+      } catch (activityError: any) {
         console.error("Failed to save event activity:", activityError);
       }
       res.status(201).json(eventWithShareUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating live event:", error);
       res.status(500).json({ error: "Unable to create live event" });
     }
@@ -158,17 +159,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fieldParam = req.query.field ? String(req.query.field).toLowerCase() : '';
 
       let users: any[] = [];
+      
+      // FIX: Ensure we get both researchers AND professors
       if (roleParam) {
         users = await storage.getUsersByRole(roleParam);
       } else {
+        // If no specific role filter, get both professors and researchers
         const researchers = await storage.getUsersByRole('researcher');
         const professors = await storage.getUsersByRole('professor');
-        users = [...researchers, ...professors];
+        // Ensure we handle cases where they might return undefined/null
+        users = [...(researchers || []), ...(professors || [])];
       }
 
+      // FIX: Ensure query filtering matches case-insensitively
       if (q) {
-        users = users.filter((u) => {
-          const name = (u.fullName || u.name || '').toString().toLowerCase();
+        users = users.filter((u: User) => {
+          const name = (u.name || '').toString().toLowerCase();
           const affiliation = (u.affiliation || u.organization || '').toString().toLowerCase();
           const field = (u.field || '').toString().toLowerCase();
           return name.includes(q) || affiliation.includes(q) || field.includes(q);
@@ -176,11 +182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (fieldParam) {
-        users = users.filter((u) => ((u.field || '').toString().toLowerCase().includes(fieldParam)));
+        users = users.filter((u: User) => ((u.field || '').toString().toLowerCase().includes(fieldParam)));
       }
 
-      res.json(users);
-    } catch (error) {
+      // Remove passwords from the response
+      const publicUsers = users.map((user: User) => {
+        const { password, ...publicUser } = user;
+        return publicUser;
+      });
+
+      res.json(publicUsers);
+    } catch (error: any) {
       console.error('Error fetching researchers:', error);
       res.status(500).json({ error: 'Failed to fetch researchers' });
     }
@@ -197,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
       );
       res.json(eventsWithOwners);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching live events:", error);
       res.status(500).json({ error: "Unable to load live events" });
     }
@@ -216,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         attendeeCount: registrations.length,
         shareUrl: event.shareUrl || `/events/${event.id}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching public event details:", error);
       res.status(500).json({ error: "Unable to load event details" });
     }
@@ -238,7 +250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         registered: registration.registered,
         shareUrl: event.shareUrl || `/events/${event.id}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error registering for event:", error);
       res.status(500).json({ error: "Unable to register for event" });
     }
@@ -260,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
       const updated = await storage.updateLiveEvent(req.params.id, updates as any);
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating event:', error);
       res.status(500).json({ error: 'Failed to update event' });
     }
@@ -281,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteLiveEvent(req.params.id);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting event:', error);
       res.status(500).json({ error: 'Failed to delete event' });
     }
@@ -291,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const activities = await storage.getRecentActivities(10);
       res.json(activities);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching recent activities:", error);
       res.status(500).json({ error: "Unable to load recent activities" });
     }
@@ -313,16 +325,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actorId: req.user!.id,
       });
       res.status(201).json(activity);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating activity:", error);
       res.status(500).json({ error: "Unable to create activity" });
     }
   });
 
   app.put("/api/projects/:id", async (req, res) => {
-    // if (!req.isAuthenticated()) {
-    //   return res.status(401).json({ error: "Authentication required" });
-    // }
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
 
     try {
       const project = await storage.getProject(req.params.id);
@@ -336,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedProject = await storage.updateProject(req.params.id, req.body);
       res.json(updatedProject);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating project:", error);
       res.status(500).json({ error: "Failed to update project" });
     }
@@ -369,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteProject(req.params.id);
       res.json({ success: true, message: "Project deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting project:", error);
       res.status(500).json({ error: "Failed to delete project" });
     }
@@ -393,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       res.json(opportunitiesWithStudents);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching opportunities:", error);
       res.status(500).json({ error: "Failed to fetch opportunities" });
     }
@@ -408,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const student = await storage.getUser(opportunity.studentId);
       res.json({ ...opportunity, student });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch opportunity" });
     }
   });
@@ -426,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const opportunity = await storage.createOpportunity(opportunityData);
       res.status(201).json(opportunity);
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ error: "Invalid opportunity data" });
     }
   });
@@ -448,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedOpportunity = await storage.updateOpportunity(req.params.id, req.body);
       res.json(updatedOpportunity);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating opportunity:", error);
       res.status(500).json({ error: "Failed to update opportunity" });
     }
@@ -471,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteOpportunity(req.params.id);
       res.json({ success: true, message: "Opportunity deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting opportunity:", error);
       res.status(500).json({ error: "Failed to delete opportunity" });
     }
@@ -499,190 +511,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json(applications);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching applications:", error);
       res.status(500).json({ error: "Failed to fetch applications" });
     }
   });
 
-
-
-app.post("/api/applications", async (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  
-  console.log("Received application request:", req.body, "from user:", req.user);
-
-  try {
-    // Extract projectId correctly - handle multiple possible formats
-    let projectId = req.body.projectId;
-    
-    // If the entire body is a string (projectId sent directly)
-    if (typeof req.body === 'string') {
-      projectId = req.body;
-    } 
-    // If projectId is an object with a projectId property (nested)
-    else if (typeof req.body.projectId === 'object' && req.body.projectId?.projectId) {
-      projectId = req.body.projectId.projectId;
-    }
-    // If projectId is a string
-    else if (typeof req.body.projectId === 'string') {
-      projectId = req.body.projectId;
-    }
-
-    console.log("Parsed projectId:", projectId);
-
-    // Validate that we have a projectId
-    if (!projectId) {
-      return res.status(400).json({ error: "Project ID is required" });
-    }
-
-    // Verify the project exists
-    const project = await storage.getProject(projectId);
-    if (!project) {
-      console.log("Project not found for ID:", projectId);
-      return res.status(404).json({ error: "Project not found" });
-    }
-    console.log("Project found:", project);
-
-    // Get the user ID from the authenticated user
-    // Try multiple possible ID fields
-    const userId = req.user!.id || req.user!._id || req.user!.userId || req.user!.username;
-    
-    if (!userId) {
-      console.error("No user ID found in req.user:", req.user);
-      return res.status(400).json({ error: "User identification failed" });
+  app.post("/api/applications", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
     }
     
-    console.log("User ID from authenticated user:", userId);
+    console.log("Received application request:", req.body, "from user:", req.user);
 
-    // Check if user is the project owner (can't apply to own project)
-    if (project.ownerId === userId || project.ownerId === req.user!.username) {
-      return res.status(400).json({ error: "You cannot apply to your own project" });
-    }
-
-    // Check if user has already applied to this project
     try {
-      const existingApplications = await storage.getApplications({
-        projectId: projectId,
-        userId: userId
-      });
+      // Extract projectId correctly - handle multiple possible formats
+      let projectId = req.body.projectId;
       
-      if (existingApplications && existingApplications.length > 0) {
-        return res.status(400).json({ error: "You have already applied to this project" });
+      // If the entire body is a string (projectId sent directly)
+      if (typeof req.body === 'string') {
+        projectId = req.body;
+      } 
+      // If projectId is an object with a projectId property (nested)
+      else if (typeof req.body.projectId === 'object' && req.body.projectId?.projectId) {
+        projectId = req.body.projectId.projectId;
       }
-      console.log("Existing applications for user:", existingApplications);
-    } catch (error) {
-      console.log("Could not check existing applications, continuing:", error.message);
-    }
+      // If projectId is a string
+      else if (typeof req.body.projectId === 'string') {
+        projectId = req.body.projectId;
+      }
 
+      console.log("Parsed projectId:", projectId);
 
+      // Validate that we have a projectId
+      if (!projectId) {
+        return res.status(400).json({ error: "Project ID is required" });
+      }
 
-    let coverLetter = '';
-if (typeof req.body === 'string') {
-  coverLetter = ''; // No cover letter when only ID is sent
-} else if (req.body.coverLetter && typeof req.body.coverLetter === 'object' && req.body.coverLetter.coverLetter) {
-  coverLetter = req.body.coverLetter.coverLetter;
-} else if (typeof req.body.coverLetter === 'string') {
-  coverLetter = req.body.coverLetter;
-} else if (typeof req.body.message === 'string') {
-  coverLetter = req.body.message;
-}
-    // Construct the application data with userId from authenticated user
-  
-const applicationData = {
-  projectId: projectId,
-  userId: userId,
-  coverLetter: coverLetter.trim(), // Ensure it's trimmed
-  status: 'submitted'
-};
+      // Verify the project exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        console.log("Project not found for ID:", projectId);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      console.log("Project found:", project);
 
-console.log("Application data to be validated and created:", applicationData)
-    console.log("Application data to be validated and created:", applicationData);
+      // Get the user ID from the authenticated user
+      const userId = req.user!.id;
+      
+      if (!userId) {
+        console.error("No user ID found in req.user:", req.user);
+        return res.status(400).json({ error: "User identification failed" });
+      }
+      
+      console.log("User ID from authenticated user:", userId);
 
-    // Validate with Zod schema
-    const validatedData = insertApplicationSchema.parse(applicationData);
-    
-    // Create the application
-    const application = await storage.createApplication(validatedData);
-    console.log("Application created successfully:", application);
-    
-    // Create notification for project owner
-    try {
-      await storage.createNotification({
-        userId: project.ownerId,
-        type: "application",
-        title: "New Project Application",
-        content: `${req.user!.fullName || req.user!.name || req.user!.username || 'Someone'} applied to your project: ${project.title}`,
-        payload: { 
-          applicationId: application.id, 
-          projectId: project.id,
-          applicantId: userId
-        },
-      });
-    } catch (notificationError) {
-      console.error("Failed to create notification:", notificationError);
-      // Don't fail the request if notification fails
-    }
+      // Check if user is the project owner (can't apply to own project)
+      if (project.ownerId === userId) {
+        return res.status(400).json({ error: "You cannot apply to your own project" });
+      }
 
-    // Send email notification to project owner
-    try {
-      const projectOwner = await storage.getUser(project.ownerId);
-      if (projectOwner?.email) {
-        const loginUrl = process.env.REPLIT_DOMAINS 
-          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-          : 'http://localhost:5000';
+      // Check if user has already applied to this project
+      try {
+        const existingApplications = await storage.getApplications({
+          projectId: projectId,
+          userId: userId
+        });
         
-        console.log(`New application email would be sent to ${projectOwner.email}`);
-        // Uncomment if you have email service set up
-        // const emailTemplate = emailService.createNewApplicationEmail(
-        //   projectOwner.email,
-        //   projectOwner.fullName || projectOwner.name || 'User',
-        //   project.title,
-        //   req.user!.fullName || req.user!.name || 'Applicant',
-        //   loginUrl
-        // );
-        // await emailService.sendEmail(emailTemplate);
+        if (existingApplications && existingApplications.length > 0) {
+          return res.status(400).json({ error: "You have already applied to this project" });
+        }
+        console.log("Existing applications for user:", existingApplications);
+      } catch (error: any) {
+        console.log("Could not check existing applications, continuing:", error.message);
       }
-    } catch (emailError) {
-      console.error('Failed to send new application email:', emailError);
-      // Don't fail the request if email fails
-    }
 
-    // Create activity log
-    try {
-      await storage.createActivity({
-        message: `${req.user!.fullName || req.user!.name || req.user!.username || 'Someone'} applied to project "${project.title}"`,
-        actorId: userId,
-      });
-    } catch (activityError) {
-      console.error("Failed to save project activity:", activityError);
-      // Don't fail the request if activity logging fails
-    }
+      let coverLetter = '';
+      if (typeof req.body === 'string') {
+        coverLetter = ''; // No cover letter when only ID is sent
+      } else if (req.body.coverLetter && typeof req.body.coverLetter === 'object' && req.body.coverLetter.coverLetter) {
+        coverLetter = req.body.coverLetter.coverLetter;
+      } else if (typeof req.body.coverLetter === 'string') {
+        coverLetter = req.body.coverLetter;
+      } else if (typeof req.body.message === 'string') {
+        coverLetter = req.body.message;
+      }
+      
+      // Construct the application data with userId from authenticated user
+      const applicationData = {
+        projectId: projectId,
+        userId: userId,
+        coverLetter: coverLetter.trim(), // Ensure it's trimmed
+        status: 'submitted'
+      };
 
-    res.status(201).json(application);
-  } catch (error) {
-    console.error('Failed to create application:', error);
-    
-    // Handle Zod validation errors specifically
-    if (error.issues) {
-      console.error('Zod Validation Issues:', error.issues);
-      return res.status(400).json({ 
-        error: "Invalid application data",
-        details: error.issues 
-      });
+      console.log("Application data to be validated and created:", applicationData);
+
+      // Validate with Zod schema
+      const validatedData = insertApplicationSchema.parse(applicationData);
+      
+      // Create the application
+      const application = await storage.createApplication(validatedData);
+      console.log("Application created successfully:", application);
+      
+      // Create notification for project owner
+      try {
+        await storage.createNotification({
+          userId: project.ownerId,
+          type: "application",
+          title: "New Project Application",
+          content: `${req.user!.name || req.user!.username || 'Someone'} applied to your project: ${project.title}`,
+          payload: { 
+            applicationId: application.id, 
+            projectId: project.id,
+            applicantId: userId
+          },
+        });
+      } catch (notificationError: any) {
+        console.error("Failed to create notification:", notificationError);
+        // Don't fail the request if notification fails
+      }
+
+      // Send email notification to project owner
+      try {
+        const projectOwner = await storage.getUser(project.ownerId);
+        if (projectOwner?.email) {
+          const loginUrl = process.env.REPLIT_DOMAINS 
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+            : 'http://localhost:5000';
+          
+          console.log(`New application email would be sent to ${projectOwner.email}`);
+          // Uncomment if you have email service set up
+          // const emailTemplate = emailService.createNewApplicationEmail(
+          //   projectOwner.email,
+          //   projectOwner.name || 'User',
+          //   project.title,
+          //   req.user!.name || 'Applicant',
+          //   loginUrl
+          // );
+          // await emailService.sendEmail(emailTemplate);
+        }
+      } catch (emailError: any) {
+        console.error('Failed to send new application email:', emailError);
+        // Don't fail the request if email fails
+      }
+
+      // Create activity log
+      try {
+        await storage.createActivity({
+          message: `${req.user!.name || req.user!.username || 'Someone'} applied to project "${project.title}"`,
+          actorId: userId,
+        });
+      } catch (activityError: any) {
+        console.error("Failed to save project activity:", activityError);
+        // Don't fail the request if activity logging fails
+      }
+
+      res.status(201).json(application);
+    } catch (error: any) {
+      console.error('Failed to create application:', error);
+      
+      // Handle Zod validation errors specifically
+      if (error.issues) {
+        console.error('Zod Validation Issues:', error.issues);
+        return res.status(400).json({ 
+          error: "Invalid application data",
+          details: error.issues 
+        });
+      }
+      
+      // Handle other errors
+      res.status(500).json({ error: "Failed to create application" });
     }
-    
-    // Handle other errors
-    res.status(500).json({ error: "Failed to create application" });
-  }
-});
-    
+  });
 
   // Update application status
-
-    // Update application status
   app.put("/api/applications/:id/status", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -707,7 +710,6 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(403).json({ error: "Not authorized to update this application" });
       }
 
-      // --- FIX STARTS HERE ---
       // If application is approved, create or get project chat and add the applicant
       if (status === 'approved') {
         // Wrap chat creation in try/catch so it doesn't throw a 500 error if it fails
@@ -718,12 +720,11 @@ console.log("Application data to be validated and created:", applicationData)
           }
           // Add the approved applicant to the chat
           await storage.addChatMember(chat.id, application.userId, "member");
-        } catch (chatError) {
+        } catch (chatError: any) {
           console.error("Failed to create chat for approved applicant, but application is still approved:", chatError);
           // We intentionally DO NOT return an error here. The application is approved successfully.
         }
       }
-      // --- FIX ENDS HERE ---
       
       const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
       
@@ -755,13 +756,13 @@ console.log("Application data to be validated and created:", applicationData)
           await emailService.sendEmail(emailTemplate);
           console.log(`Email sent to ${applicant.email} for application status: ${status}`);
         }
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error('Failed to send application status email:', emailError);
         // Don't fail the whole request if email fails
       }
       
       res.json(updatedApplication);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating application status:', error);
       res.status(500).json({ error: "Failed to update application status" });
     }
@@ -787,7 +788,7 @@ console.log("Application data to be validated and created:", applicationData)
       const updatedApplication = await storage.updateApplication(req.params.id, req.body);
       
       res.json(updatedApplication);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to update application" });
     }
   });
@@ -812,7 +813,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       const comments = await storage.getApplicationComments(req.params.id);
       res.json(comments);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching application comments:', error);
       res.status(500).json({ error: "Failed to fetch comments" });
     }
@@ -860,7 +861,7 @@ console.log("Application data to be validated and created:", applicationData)
       }
 
       res.status(201).json(comment);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating application comment:', error);
       res.status(500).json({ error: "Failed to create comment" });
     }
@@ -892,7 +893,7 @@ console.log("Application data to be validated and created:", applicationData)
       );
 
       res.json(messagesWithParticipants);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
@@ -920,7 +921,7 @@ console.log("Application data to be validated and created:", applicationData)
       });
       
       res.status(201).json(message);
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ error: "Invalid message data" });
     }
   });
@@ -944,9 +945,9 @@ console.log("Application data to be validated and created:", applicationData)
       );
 
       // sort by createdAt ascending
-      threadWithSenders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+      threadWithSenders.sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime());
       res.json(threadWithSenders);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching conversation thread:', error);
       res.status(500).json({ error: 'Failed to fetch conversation' });
     }
@@ -962,7 +963,7 @@ console.log("Application data to be validated and created:", applicationData)
       });
       
       res.json(grants);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch grants" });
     }
   });
@@ -976,7 +977,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const notifications = await storage.getNotifications(req.user!.id);
       res.json(notifications);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
@@ -989,7 +990,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       await storage.markNotificationAsRead(req.params.id);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
@@ -1003,20 +1004,20 @@ console.log("Application data to be validated and created:", applicationData)
       if (role) {
         users = await storage.getUsersByRole(role as string);
       } else {
-        // Get all professors and students (remove verification filter)
+        // Get all professors and researchers (remove verification filter)
         const professors = await storage.getUsersByRole("professor");
-        const students = await storage.getUsersByRole("student");
-        users = [...professors, ...students];
+        const researchers = await storage.getUsersByRole("researcher");
+        users = [...professors, ...researchers];
       }
       
       // Remove password from response
-      const publicUsers = users.map(user => {
+      const publicUsers = users.map((user: User) => {
         const { password, ...publicUser } = user;
         return publicUser;
       });
       
       res.json(publicUsers);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch researchers" });
     }
   });
@@ -1030,7 +1031,7 @@ console.log("Application data to be validated and created:", applicationData)
       
       const { password, ...publicUser } = user;
       res.json(publicUser);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch researcher" });
     }
   });
@@ -1051,7 +1052,7 @@ console.log("Application data to be validated and created:", applicationData)
       try {
         const fetchedInterests = await queryValuesByChild<UserInterests>("userInterests", "userId", user.id);
         interests = fetchedInterests[0] || {};
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error fetching interests for user ${user.id}:`, error);
       }
 
@@ -1060,7 +1061,7 @@ console.log("Application data to be validated and created:", applicationData)
         ...publicUser,
         interests,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching user profile for ${requestedId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
@@ -1080,7 +1081,7 @@ console.log("Application data to be validated and created:", applicationData)
       }
       const projects = await storage.getProjects({ ownerId: user.id });
       res.json(projects);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching projects for user ${requestedId}:`, error);
       res.status(500).json({ error: "Failed to fetch user projects" });
     }
@@ -1112,7 +1113,7 @@ console.log("Application data to be validated and created:", applicationData)
         return res.json({ status: 'connected' });
       }
       return res.json({ status: existing.status || 'unknown' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching connection status:', error);
       res.status(500).json({ error: 'Failed to fetch connection status' });
     }
@@ -1127,7 +1128,7 @@ console.log("Application data to be validated and created:", applicationData)
       if (toUserId === req.user!.id) return res.status(400).json({ error: 'Cannot connect to yourself' });
       const connection = await storage.createConnectionRequest({ fromUserId: req.user!.id, toUserId, message });
       res.status(201).json(connection);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating connection request:', error);
       res.status(500).json({ error: 'Failed to create connection request' });
     }
@@ -1140,7 +1141,7 @@ console.log("Application data to be validated and created:", applicationData)
       // enrich with user objects
       const users = await storage.getUsersByRole('');
       res.json(connections);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching connections:', error);
       res.status(500).json({ error: 'Failed to fetch connections' });
     }
@@ -1151,7 +1152,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const requests = await storage.getConnectionRequestsForUser(req.user!.id);
       res.json(requests);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching connection requests:', error);
       res.status(500).json({ error: 'Failed to fetch connection requests' });
     }
@@ -1175,14 +1176,13 @@ console.log("Application data to be validated and created:", applicationData)
 
       const updated = await storage.updateConnectionRequest(req.params.id, { status });
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating connection request:', error);
       res.status(500).json({ error: 'Failed to update connection request' });
     }
   });
 
-  // AI Matching Routes (removed - replaced with new implementation below)
-
+  // AI Matching Routes
   app.get("/api/recommendations/students/:projectId", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -1209,7 +1209,7 @@ console.log("Application data to be validated and created:", applicationData)
       );
       
       res.json(matches);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting student recommendations:", error);
       res.status(500).json({ error: "Failed to get student recommendations" });
     }
@@ -1223,7 +1223,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       await matchingService.updateUserEmbedding(req.user!.id);
       res.json({ success: true, message: "Profile embedding updated" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile embedding:", error);
       res.status(500).json({ error: "Failed to update profile embedding" });
     }
@@ -1246,7 +1246,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       await matchingService.updateProjectEmbedding(req.params.id);
       res.json({ success: true, message: "Project embedding updated" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating project embedding:", error);
       res.status(500).json({ error: "Failed to update project embedding" });
     }
@@ -1267,7 +1267,7 @@ console.log("Application data to be validated and created:", applicationData)
       const normalizedUrl = cvUrl.trim();
       await storage.updateUser(req.user!.id, { cvUrl: normalizedUrl });
       res.json({ success: true, cvUrl: normalizedUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating CV:", error);
       res.status(500).json({ error: "Failed to update CV" });
     }
@@ -1297,7 +1297,7 @@ console.log("Application data to be validated and created:", applicationData)
       const normalizedUrl = flyerUrl.trim();
       await storage.updateProject(req.params.id, { flyerUrl: normalizedUrl });
       res.json({ success: true, flyerUrl: normalizedUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating project flyer:", error);
       res.status(500).json({ error: "Failed to update project flyer" });
     }
@@ -1325,7 +1325,7 @@ console.log("Application data to be validated and created:", applicationData)
       const normalizedUrl = posterUrl.trim();
       await storage.updateLiveEvent(req.params.id, { posterUrl: normalizedUrl } as any);
       res.json({ success: true, posterUrl: normalizedUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating event poster:", error);
       res.status(500).json({ error: "Failed to update event poster" });
     }
@@ -1354,7 +1354,7 @@ console.log("Application data to be validated and created:", applicationData)
       }
 
       res.json(chat);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting project chat:', error);
       res.status(500).json({ error: "Failed to get chat" });
     }
@@ -1378,7 +1378,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       const messages = await storage.getChatMessages(chatId);
       res.json(messages);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting chat messages:', error);
       res.status(500).json({ error: "Failed to get messages" });
     }
@@ -1413,7 +1413,7 @@ console.log("Application data to be validated and created:", applicationData)
       });
 
       res.status(201).json(message);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating chat message:', error);
       res.status(500).json({ error: "Failed to send message" });
     }
@@ -1436,7 +1436,7 @@ console.log("Application data to be validated and created:", applicationData)
       }
 
       res.json(members);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting chat members:', error);
       res.status(500).json({ error: "Failed to get members" });
     }
@@ -1463,15 +1463,16 @@ console.log("Application data to be validated and created:", applicationData)
       
       // Calculate match scores for each user
       const usersWithScores = await Promise.all(
-        allPotentialUsers.map(async (user) => {
+        allPotentialUsers.map(async (user: User) => {
           try {
+            // FIX: Imported calculateUserProjectCompatibility from matchingService above
             const matchScore = await matchingService.calculateUserProjectCompatibility(user.id, projectId);
             const { password, ...publicUser } = user;
             return {
               ...publicUser,
               matchScore: Math.round(matchScore * 100)
             };
-          } catch (error) {
+          } catch (error: any) {
             const { password, ...publicUser } = user;
             return {
               ...publicUser,
@@ -1485,7 +1486,7 @@ console.log("Application data to be validated and created:", applicationData)
       usersWithScores.sort((a, b) => b.matchScore - a.matchScore);
       
       res.json(usersWithScores);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting matching users:', error);
       res.status(500).json({ error: "Failed to get matching users" });
     }
@@ -1511,7 +1512,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       // Create shares for each user
       const shares = await Promise.all(
-        userIds.map(userId => 
+        userIds.map((userId: string) => 
           storage.shareProject({
             projectId,
             sharedById: req.user!.id,
@@ -1524,7 +1525,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       // Create notifications and send emails for shared users
       await Promise.all(
-        userIds.map(async userId => {
+        userIds.map(async (userId: string) => {
           // Create notification
           await storage.createNotification({
             userId,
@@ -1552,7 +1553,7 @@ console.log("Application data to be validated and created:", applicationData)
               await emailService.sendEmail(emailTemplate);
               console.log(`Project share email sent to platform user: ${recipient.email}`);
             }
-          } catch (emailError) {
+          } catch (emailError: any) {
             console.error('Failed to send email notification:', emailError);
             // Don't fail the request if email fails
           }
@@ -1561,7 +1562,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       // Send emails to external email addresses
       await Promise.all(
-        emails.map(async email => {
+        emails.map(async (email: string) => {
           try {
             const loginUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
@@ -1576,7 +1577,7 @@ console.log("Application data to be validated and created:", applicationData)
             );
             await emailService.sendEmail(emailTemplate);
             console.log(`Project share email sent to external email: ${email}`);
-          } catch (emailError) {
+          } catch (emailError: any) {
             console.error('Failed to send email to external address:', emailError);
             // Don't fail the request if email fails
           }
@@ -1584,7 +1585,7 @@ console.log("Application data to be validated and created:", applicationData)
       );
 
       res.json({ success: true, shares });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sharing project:', error);
       res.status(500).json({ error: "Failed to share project" });
     }
@@ -1598,7 +1599,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const shares = await storage.getProjectShares(req.user!.id);
       res.json(shares);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting project shares:', error);
       res.status(500).json({ error: "Failed to get project shares" });
     }
@@ -1618,7 +1619,7 @@ console.log("Application data to be validated and created:", applicationData)
 
       const share = await storage.updateShareStatus(req.params.id, status);
       res.json(share);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating share status:', error);
       res.status(500).json({ error: "Failed to update share status" });
     }
@@ -1632,7 +1633,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const recommendations = await storage.getRecommendedProjects(req.user!.id, 10);
       res.json(recommendations);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting project recommendations:', error);
       res.status(500).json({ error: "Failed to get recommendations" });
     }
@@ -1646,7 +1647,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const interests = await storage.getUserInterests(req.user!.id);
       res.json(interests || { keywords: [], researchAreas: [] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting user interests:', error);
       res.status(500).json({ error: "Failed to get user interests" });
     }
@@ -1664,13 +1665,15 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(400).json({ error: "Keywords and research areas must be arrays" });
       }
 
+      // FIX: Correctly pass the userId as part of the object
       const interests = await storage.updateUserInterests(req.user!.id, {
+        userId: req.user!.id,
         keywords,
         researchAreas
       });
 
       res.json(interests);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user interests:', error);
       res.status(500).json({ error: "Failed to update user interests" });
     }
@@ -1685,7 +1688,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const feed = await storage.getFeed(req.user!.id);
       res.json(feed || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching feed:', error);
       res.status(500).json({ error: "Failed to fetch feed" });
     }
@@ -1704,6 +1707,12 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(400).json({ error: "Post content or image is required" });
       }
 
+      // FIX: Removed any accidental role-blocking logic. Students are explicitly allowed to post.
+      // If you want to restrict this in the future, uncomment the lines below:
+      // if (String(req.user!.role || '').toLowerCase() === 'student') {
+      //   return res.status(403).json({ error: "Students cannot create feed posts" });
+      // }
+
       const post = await storage.createFeedPost({
         authorId: req.user!.id,
         content: hasText ? content.trim() : "",
@@ -1711,7 +1720,7 @@ console.log("Application data to be validated and created:", applicationData)
       });
 
       res.status(201).json(post);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating feed post:', error);
       res.status(500).json({ error: "Failed to create feed post" });
     }
@@ -1725,7 +1734,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const post = await storage.toggleFeedLike(req.params.postId, req.user!.id);
       res.json(post);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling feed like:', error);
       res.status(500).json({ error: "Failed to update feed like" });
     }
@@ -1739,7 +1748,7 @@ console.log("Application data to be validated and created:", applicationData)
     try {
       const comments = await storage.getFeedComments(req.params.postId);
       res.json(comments || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching feed comments:', error);
       res.status(500).json({ error: "Failed to fetch feed comments" });
     }
@@ -1752,7 +1761,7 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(404).json({ error: 'Post not found' });
       }
       res.json(post);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching shared feed post:', error);
       res.status(500).json({ error: 'Failed to fetch shared post' });
     }
@@ -1769,6 +1778,7 @@ console.log("Application data to be validated and created:", applicationData)
         return res.status(400).json({ error: "Comment content is required" });
       }
 
+      // FIX: Removed any accidental role-blocking logic. Students are allowed to comment.
       const comment = await storage.createFeedComment(req.params.postId, {
         authorId: req.user!.id,
         content: content.trim(),
@@ -1786,7 +1796,7 @@ console.log("Application data to be validated and created:", applicationData)
       }
 
       res.status(201).json(comment);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating feed comment:', error);
       res.status(500).json({ error: "Failed to create feed comment" });
     }

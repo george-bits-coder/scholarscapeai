@@ -227,23 +227,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/events/:id/public", async (req, res) => {
-    try {
-      const event = await storage.getLiveEvent(req.params.id);
-      if (!event) return res.status(404).json({ error: "Event not found" });
+  try {
+    const event = await storage.getLiveEvent(req.params.id);
+    if (!event) return res.status(404).json({ error: "Event not found" });
 
-      const owner = await storage.getUser(event.ownerId);
-      const registrations = await storage.getLiveEventRegistrations(event.id);
-      res.json({
-        ...event,
-        owner,
-        attendeeCount: registrations.length,
-        shareUrl: event.shareUrl || `/events/${event.id}`,
-      });
-    } catch (error: any) {
-      console.error("Error fetching public event details:", error);
-      res.status(500).json({ error: "Unable to load event details" });
-    }
-  });
+    const owner = await storage.getUser(event.ownerId);
+    const registrations = await storage.getLiveEventRegistrations(event.id);
+    res.json({
+      ...event,
+      posterUrl: event.posterUrl || null, // ✅ Ensure this is returned
+      owner,
+      attendeeCount: registrations.length,
+      shareUrl: event.shareUrl || `/events/${event.id}`,
+    });
+  } catch (error: any) {
+    console.error("Error fetching public event details:", error);
+    res.status(500).json({ error: "Unable to load event details" });
+  }
+});
 
   app.post("/api/events/:id/register", async (req, res) => {
     if (!req.isAuthenticated()) {

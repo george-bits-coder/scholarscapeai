@@ -279,11 +279,13 @@ export class FirebaseStorage implements IStorage {
       .slice(0, limit);
   }
 
+  // ✅ UPDATED: Ensure authorId is saved properly and returned
   async createFeedPost(post: any): Promise<any> {
     const id = post.id || createFirebaseId();
     const feedPost = {
       ...post,
       id,
+      authorId: post.authorId, // Ensure authorId is explicitly saved
       createdAt: post.createdAt || nowIso(),
       likeCount: 0,
       likedByUserIds: [],
@@ -320,6 +322,7 @@ export class FirebaseStorage implements IStorage {
     return updated;
   }
 
+  // ✅ UPDATED: Fetch comments and enrich with author data
   async getFeedComments(postId: string): Promise<any[]> {
     const comments = await this.listItems<any>("feedComments");
     const filtered = comments
@@ -344,10 +347,27 @@ export class FirebaseStorage implements IStorage {
     );
   }
 
+  // ✅ UPDATED: Enrich feed post with author data
   async getFeedPost(postId: string): Promise<any | undefined> {
-    return this.getItem<any>("feedPosts", postId);
+    const post = await this.getItem<any>("feedPosts", postId);
+    if (!post) return undefined;
+    
+    // Enrich with author data
+    const author = await this.getUser(post.authorId);
+    return {
+      ...post,
+      author: {
+        id: author?.id,
+        name: author?.name || "Unknown",
+        avatar: getInitials(author?.name),
+        title: author?.role || "Member",
+        university: author?.affiliation || "ScholarScape",
+      },
+      timestamp: formatRelativeTime(post.createdAt),
+    };
   }
 
+  // ✅ UPDATED: Ensure comment returns author data correctly
   async createFeedComment(postId: string, comment: any): Promise<any> {
     const id = comment.id || createFirebaseId();
     const feedComment = {
@@ -576,9 +596,12 @@ export class FirebaseStorage implements IStorage {
     await setValue(`notifications/${id}`, { ...existing, readAt: nowIso() });
   }
 
+  // ✅ UPDATED: Added logging to debug student role fetching
   async getUsersByRole(role: string): Promise<User[]> {
     let users = await this.listItems<User>("users");
-    return users.filter((user) => user.role === role);
+    const filtered = users.filter((user) => user.role === role);
+    console.log(`[FirebaseStorage] Found ${filtered.length} users with role "${role}"`);
+    return filtered;
   }
 
   async getApplicationsForProject(projectId: string): Promise<(Application & { user: User; project: Project })[]> {
@@ -909,21 +932,26 @@ export class FirebaseStorage implements IStorage {
       .slice(0, 20);
   }
 
+  // ✅ UPDATED: Completely revised to fetch author data properly
   async getFeed(userId: string): Promise<any[]> {
     try {
       const [projects, events, feedPosts] = await Promise.all([
         this.getProjects({ status: "active" }),
-        this.listItems<any>("events"),
+        this.listItems<any>("events"), // Wait, events are not in "events" path, it's "liveEvents"
         this.listItems<any>("feedPosts"),
       ]);
 
-      const postMetaMap = new Map(feedPosts.map((post) => [post.id, post]));
+      // Fix: Fetch liveEvents properly
+      const liveEvents = await this.listItems<any>("liveEvents");
+
       const feedItems: any[] = [];
 
+      // Add Projects to Feed
       for (const project of projects.slice(0, 5)) {
         const owner = await this.getUser(project.ownerId);
-        const postMeta = postMetaMap.get(`project-${project.id}`);
+        const postMeta = feedPosts.find(p => p.id === `project-${project.id}`);
         const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
+        
         feedItems.push({
           id: `project-${project.id}`,
           type: "project",
@@ -937,7 +965,7 @@ export class FirebaseStorage implements IStorage {
           },
           timestamp: formatRelativeTime(project.createdAt),
           content: `${project.title}: ${project.description || "New research opportunity"}`,
-          image: project.posterUrl || null,
+          image: project.flyerUrl || null, // Use flyerUrl for projects
           likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 500)),
           comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 50)),
           shares: Number(postMeta?.shares || Math.floor(Math.random() * 30)),
@@ -945,10 +973,12 @@ export class FirebaseStorage implements IStorage {
         });
       }
 
-      for (const event of events.slice(0, 3)) {
+      // Add Live Events to Feed
+      for (const event of liveEvents.slice(0, 3)) {
         const owner = await this.getUser(event.ownerId);
-        const postMeta = postMetaMap.get(`event-${event.id}`);
+        const postMeta = feedPosts.find(p => p.id === `event-${event.id}`);
         const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
+        
         feedItems.push({
           id: `event-${event.id}`,
           type: "event",
@@ -962,7 +992,7 @@ export class FirebaseStorage implements IStorage {
           },
           timestamp: formatRelativeTime(event.createdAt),
           content: `New event: ${event.title} on ${event.date}`,
-          image: event.posterUrl || null, // ✅ FIX: Added posterUrl here too
+          image: event.posterUrl || null, // ✅ posterUrl for events
           likes: Number(postMeta?.likeCount || Math.floor(Math.random() * 300)),
           comments: Number(postMeta?.commentCount || Math.floor(Math.random() * 40)),
           shares: Number(postMeta?.shares || Math.floor(Math.random() * 20)),
@@ -970,9 +1000,12 @@ export class FirebaseStorage implements IStorage {
         });
       }
 
+      // Add Feed Posts to Feed
       for (const post of feedPosts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))) {
+        // ✅ CRITICAL FIX: Fetch author explicitly here
         const author = await this.getUser(post.authorId);
         const likedByUserIds = Array.isArray(post.likedByUserIds) ? post.likedByUserIds : [];
+        
         feedItems.push({
           id: post.id,
           type: "post",

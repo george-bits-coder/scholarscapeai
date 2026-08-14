@@ -162,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public researchers listing with optional search and filters
+  // ✅ UPDATED: Researchers listing with search and filters (Includes Students)
   app.get('/api/researchers', async (req, res) => {
     try {
       const q = (req.query.q || '').toString().trim().toLowerCase();
@@ -171,18 +171,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let users: any[] = [];
       
-      // FIX: Ensure we get both researchers AND professors
       if (roleParam) {
         users = await storage.getUsersByRole(roleParam);
       } else {
-        // If no specific role filter, get both professors and researchers
+        // If no specific role filter, get professors, researchers, AND students
         const researchers = await storage.getUsersByRole('researcher');
         const professors = await storage.getUsersByRole('professor');
-        // Ensure we handle cases where they might return undefined/null
-        users = [...(researchers || []), ...(professors || [])];
+        const students = await storage.getUsersByRole('student');
+        users = [...(researchers || []), ...(professors || []), ...(students || [])];
       }
 
-      // FIX: Ensure query filtering matches case-insensitively
       if (q) {
         users = users.filter((u: User) => {
           const name = (u.name || '').toString().toLowerCase();
@@ -227,24 +225,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/events/:id/public", async (req, res) => {
-  try {
-    const event = await storage.getLiveEvent(req.params.id);
-    if (!event) return res.status(404).json({ error: "Event not found" });
+    try {
+      const event = await storage.getLiveEvent(req.params.id);
+      if (!event) return res.status(404).json({ error: "Event not found" });
 
-    const owner = await storage.getUser(event.ownerId);
-    const registrations = await storage.getLiveEventRegistrations(event.id);
-    res.json({
-      ...event,
-      posterUrl: event.posterUrl || null, // ✅ Ensure this is returned
-      owner,
-      attendeeCount: registrations.length,
-      shareUrl: event.shareUrl || `/events/${event.id}`,
-    });
-  } catch (error: any) {
-    console.error("Error fetching public event details:", error);
-    res.status(500).json({ error: "Unable to load event details" });
-  }
-});
+      const owner = await storage.getUser(event.ownerId);
+      const registrations = await storage.getLiveEventRegistrations(event.id);
+      res.json({
+        ...event,
+        posterUrl: event.posterUrl || null, // ✅ Ensure this is returned
+        owner,
+        attendeeCount: registrations.length,
+        shareUrl: event.shareUrl || `/events/${event.id}`,
+      });
+    } catch (error: any) {
+      console.error("Error fetching public event details:", error);
+      res.status(500).json({ error: "Unable to load event details" });
+    }
+  });
 
   app.post("/api/events/:id/register", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -938,6 +936,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ MARK MESSAGES AS READ
+  app.put("/api/messages/read/:otherUserId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    try {
+      const currentUserId = req.user!.id;
+      const otherUserId = req.params.otherUserId;
+      // Update all messages from otherUserId to currentUserId to 'read'
+      await storage.markMessagesAsRead(currentUserId, otherUserId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error marking messages as read:', error);
+      res.status(500).json({ error: "Failed to mark messages as read" });
+    }
+  });
+
+  // ✅ FETCH UNREAD MESSAGE COUNT
+  app.get("/api/messages/unread-count", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    try {
+      const count = await storage.getUnreadMessageCount(req.user!.id);
+      res.json({ count });
+    } catch (error: any) {
+      console.error('Error fetching unread count:', error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
   // Conversation thread between current user and another user
   app.get('/api/messages/thread/:otherId', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
@@ -1007,32 +1036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Researchers routes
-  app.get("/api/researchers", async (req, res) => {
-    try {
-      const { role } = req.query;
-      let users;
-      
-      if (role) {
-        users = await storage.getUsersByRole(role as string);
-      } else {
-        // Get all professors and researchers (remove verification filter)
-        const professors = await storage.getUsersByRole("professor");
-        const researchers = await storage.getUsersByRole("researcher");
-        users = [...professors, ...researchers];
-      }
-      
-      // Remove password from response
-      const publicUsers = users.map((user: User) => {
-        const { password, ...publicUser } = user;
-        return publicUser;
-      });
-      
-      res.json(publicUsers);
-    } catch (error: any) {
-      res.status(500).json({ error: "Failed to fetch researchers" });
-    }
-  });
+  // Researchers routes (Duplicate Removed - single definition above)
 
   app.get("/api/researchers/:id", async (req, res) => {
     try {

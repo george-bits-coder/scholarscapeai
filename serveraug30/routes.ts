@@ -159,18 +159,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const { flyerUrl, ...projectBody } = req.body || {};
-      const parsedProject = insertProjectSchema.parse({
-        ...projectBody,
+      const projectData = insertProjectSchema.parse({
+        ...req.body,
         ownerId: req.user!.id,
       });
-
-      const projectData = {
-        ...parsedProject,
-        flyerUrl: typeof flyerUrl === "string" && flyerUrl.trim() ? flyerUrl.trim() : null,
-      };
-
-      const project = await storage.createProject(projectData as any);
+      
+      const project = await storage.createProject(projectData);
       try {
         await storage.createActivity({
           message: `Created project "${project.title}"`,
@@ -181,8 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.status(201).json(project);
     } catch (error: any) {
-      console.error("Error creating project:", error);
-      res.status(400).json({ error: error?.message || "Invalid project data" });
+      res.status(400).json({ error: "Invalid project data" });
     }
   });
 
@@ -429,13 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to edit this project" });
       }
 
-      const { flyerUrl, ...projectUpdates } = req.body || {};
-      const updates = {
-        ...projectUpdates,
-        ...(typeof flyerUrl === "string" ? { flyerUrl: flyerUrl.trim() || null } : {}),
-      };
-
-      const updatedProject = await storage.updateProject(req.params.id, updates as any);
+      const updatedProject = await storage.updateProject(req.params.id, req.body);
       res.json(updatedProject);
     } catch (error: any) {
       console.error("Error updating project:", error);

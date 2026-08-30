@@ -136,10 +136,6 @@ function getInitials(name?: string): string {
     .join("") || "R";
 }
 
-function getUserDisplayName(user?: Partial<User>): string {
-  return user?.fullName || user?.name || user?.username || "Unknown";
-}
-
 function ensureId<T extends Record<string, any>>(item: any, id: string): T & { id: string } {
   if (!item) throw new Error(`Missing item for id ${id}`);
   return { id, ...item };
@@ -234,7 +230,6 @@ export class FirebaseStorage implements IStorage {
     const id = insertProject.id || createFirebaseId();
     const project: any = {
       ...insertProject,
-      flyerUrl: insertProject?.flyerUrl || null,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -337,19 +332,7 @@ export class FirebaseStorage implements IStorage {
       commentCount: 0,
       shares: 0,
     };
-    const savedPost = await this.saveItem<any>("feedPosts", id, feedPost);
-    const author = await this.getUser(feedPost.authorId);
-    return {
-      ...savedPost,
-      author: {
-        id: author?.id,
-        name: getUserDisplayName(author),
-        avatar: getInitials(getUserDisplayName(author)),
-        title: author?.role || "Member",
-        university: author?.affiliation || "ScholarScape",
-      },
-      timestamp: formatRelativeTime(feedPost.createdAt),
-    };
+    return this.saveItem<any>("feedPosts", id, feedPost);
   }
 
   async toggleFeedLike(postId: string, userId: string): Promise<any> {
@@ -392,8 +375,8 @@ export class FirebaseStorage implements IStorage {
           ...comment,
           author: {
             id: author?.id,
-            name: getUserDisplayName(author),
-            avatar: getInitials(getUserDisplayName(author)),
+            name: author?.name || "Unknown",
+            avatar: getInitials(author?.name),
             title: author?.role || "Member",
             university: author?.affiliation || "ScholarScape",
           },
@@ -412,8 +395,8 @@ export class FirebaseStorage implements IStorage {
       ...post,
       author: {
         id: author?.id,
-        name: getUserDisplayName(author),
-        avatar: getInitials(getUserDisplayName(author)),
+        name: author?.name || "Unknown",
+        avatar: getInitials(author?.name),
         title: author?.role || "Member",
         university: author?.affiliation || "ScholarScape",
       },
@@ -453,8 +436,8 @@ export class FirebaseStorage implements IStorage {
       ...feedComment,
       author: {
         id: author?.id,
-        name: getUserDisplayName(author),
-        avatar: getInitials(getUserDisplayName(author)),
+        name: author?.name || 'Unknown',
+        avatar: getInitials(author?.name),
         title: author?.role || 'Member',
         university: author?.affiliation || 'ScholarScape',
       },
@@ -477,7 +460,6 @@ export class FirebaseStorage implements IStorage {
     const updated = {
       ...existing,
       ...updates,
-      flyerUrl: updates?.flyerUrl ?? existing?.flyerUrl ?? null,
       updatedAt: nowIso(),
     };
     await setValue(`projects/${id}`, updated);
@@ -1008,9 +990,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: project.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: getUserDisplayName(owner),
+            name: owner?.name || "Unknown",
             title: owner?.role || "Researcher",
-            avatar: getInitials(getUserDisplayName(owner)),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(project.createdAt),
@@ -1035,9 +1017,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: event.createdAt || nowIso(),
           author: {
             id: owner?.id,
-            name: getUserDisplayName(owner),
+            name: owner?.name || "Unknown",
             title: owner?.role || "Organizer",
-            avatar: getInitials(getUserDisplayName(owner)),
+            avatar: getInitials(owner?.name),
             university: owner?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(event.createdAt),
@@ -1061,9 +1043,9 @@ export class FirebaseStorage implements IStorage {
           createdAt: post.createdAt || nowIso(),
           author: {
             id: author?.id,
-            name: getUserDisplayName(author),
+            name: author?.name || "Unknown",
             title: author?.role || "Member",
-            avatar: getInitials(getUserDisplayName(author)),
+            avatar: getInitials(author?.name),
             university: author?.affiliation || "ScholarScape",
           },
           timestamp: formatRelativeTime(post.createdAt),

@@ -26,9 +26,7 @@ import { storage } from "./storage";
 import { matchingService } from "./matching-service";
 import { User as SelectUser, type User } from "@shared/schema";
 import { hashPassword, comparePasswords } from "./password";
-import { createFirebaseId, getValue, listValues, queryValuesByChild, setValue, removeValue } from "./firebase";
-import { randomBytes, createHash } from "crypto";
-import { emailService } from "./emailService";
+import { createFirebaseId, getValue, queryValuesByChild, setValue } from "./firebase";
 
 declare global {
   namespace Express {
@@ -104,20 +102,13 @@ export function setupAuth(app: Express) {
         id,
         ...req.body,
         password: await hashPassword(req.body.password),
-        verified: false,
-        emailVerified: false,
+        verified: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as any;
 
       await setValue(`users/${id}`, user);
       console.log("User created successfully:", user.id);
-
-      try {
-        await sendVerificationEmail(req, user);
-      } catch (verificationError) {
-        console.error("Verification email could not be sent:", verificationError);
-      }
 
       req.login(user, (err: unknown) => {
         if (err) {
@@ -130,107 +121,6 @@ export function setupAuth(app: Express) {
       console.error("Registration error:", error);
       const message = error instanceof Error ? error.message : String(error);
       res.status(500).json({ error: "Registration failed: " + message });
-    }
-  });
-
-  app.post("/api/email-verification/resend", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentication required" });
-    if ((req.user as any).emailVerified === true) return res.json({ message: "Your email is already verified." });
-
-    try {
-      await sendVerificationEmail(req, req.user);
-      return res.json({ message: "A new verification link has been sent to your email." });
-    } catch (error) {
-      console.error("Verification email resend failed:", error);
-      return res.status(500).json({ error: "Unable to send verification email. Please try again." });
-    }
-  });
-
-  app.post("/api/email-verification/confirm", async (req, res) => {
-    const token = typeof req.body?.token === "string" ? req.body.token : "";
-    if (!token) return res.status(400).json({ error: "A verification token is required." });
-
-    try {
-      const tokenHash = createHash("sha256").update(token).digest("hex");
-      const verification = await getValue<{ userId: string; expiresAt: number }>(`emailVerificationTokens/${tokenHash}`);
-      if (!verification || verification.expiresAt < Date.now()) {
-        return res.status(400).json({ error: "This verification link is invalid or has expired." });
-      }
-
-      const user = await getValue<User>(`users/${verification.userId}`);
-      if (!user) return res.status(400).json({ error: "This verification link is invalid or has expired." });
-      await setValue(`users/${user.id}`, { ...user, verified: true, emailVerified: true, updatedAt: new Date().toISOString() });
-      await removeValue(`emailVerificationTokens/${tokenHash}`);
-      return res.json({ message: "Your email has been verified successfully." });
-    } catch (error) {
-      console.error("Email verification failed:", error);
-      return res.status(500).json({ error: "Unable to verify your email. Please request a new link." });
-    }
-  });
-
-  app.post("/api/password-reset/request", async (req, res) => {
-    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    const genericResponse = { message: "If an account exists for that email, a password reset link has been sent." };
-
-    if (!email) return res.status(200).json(genericResponse);
-
-    try {
-      const users = await listValues<User>("users");
-      const user = users.find((candidate) => String((candidate as any).email || '').trim().toLowerCase() === email);
-
-      if (user) {
-        const token = randomBytes(32).toString("hex");
-        const tokenHash = createHash("sha256").update(token).digest("hex");
-        await setValue(`passwordResetTokens/${tokenHash}`, {
-          userId: user.id,
-          expiresAt: Date.now() + 60 * 60 * 1000,
-        });
-
-        const appUrl = (process.env.APP_URL || req.get("origin") || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
-        const resetUrl = `${appUrl}/reset-password?token=${token}`;
-        const emailTemplate = emailService.createPasswordResetEmail(
-          email,
-          user.name || (user as any).fullName || user.username || "there",
-          resetUrl,
-        );
-        await emailService.sendEmail(emailTemplate);
-      }
-
-      return res.status(200).json(genericResponse);
-    } catch (error) {
-      console.error("Password reset request failed:", error);
-      return res.status(200).json(genericResponse);
-    }
-  });
-
-  app.post("/api/password-reset/confirm", async (req, res) => {
-    const token = typeof req.body?.token === "string" ? req.body.token : "";
-    const password = typeof req.body?.password === "string" ? req.body.password : "";
-
-    if (!token || password.length < 6) {
-      return res.status(400).json({ error: "A valid reset link and a password of at least 6 characters are required." });
-    }
-
-    try {
-      const tokenHash = createHash("sha256").update(token).digest("hex");
-      const resetRecord = await getValue<{ userId: string; expiresAt: number }>(`passwordResetTokens/${tokenHash}`);
-      if (!resetRecord || resetRecord.expiresAt < Date.now()) {
-        return res.status(400).json({ error: "This password reset link is invalid or has expired." });
-      }
-
-      const user = await getValue<User>(`users/${resetRecord.userId}`);
-      if (!user) return res.status(400).json({ error: "This password reset link is invalid or has expired." });
-
-      await setValue(`users/${user.id}`, {
-        ...user,
-        password: await hashPassword(password),
-        updatedAt: new Date().toISOString(),
-      });
-      await removeValue(`passwordResetTokens/${tokenHash}`);
-      return res.json({ message: "Your password has been reset successfully." });
-    } catch (error) {
-      console.error("Password reset confirmation failed:", error);
-      return res.status(500).json({ error: "Unable to reset password. Please request a new link." });
     }
   });
 
@@ -320,23 +210,4 @@ export function setupAuth(app: Express) {
       res.status(500).json({ error: 'Failed to update user profile' });
     }
   });
-}
-
-async function sendVerificationEmail(req: Express.Request, user: any) {
-  const token = randomBytes(32).toString("hex");
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  await setValue(`emailVerificationTokens/${tokenHash}`, {
-    userId: user.id,
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-  });
-
-  const appUrl = (process.env.APP_URL || req.get("origin") || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
-  const verificationUrl = `${appUrl}/verify-email?token=${token}`;
-  const recipientEmail = String(user.email || "").trim();
-  if (!recipientEmail) throw new Error("User has no email address");
-  await emailService.sendEmail(emailService.createEmailVerificationEmail(
-    recipientEmail,
-    user.name || user.fullName || user.username || "there",
-    verificationUrl,
-  ));
 }

@@ -91,20 +91,6 @@ export class EmailService {
     }
   }
 
-  createPasswordResetEmail(recipientEmail: string, recipientName: string, resetUrl: string): EmailTemplate {
-    const subject = 'Reset your ScholarScape password';
-    const text = `Hi ${recipientName},\n\nUse this link to reset your ScholarScape password:\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, you can ignore this email.`;
-    const html = `<p>Hi ${recipientName},</p><p>Use the link below to reset your ScholarScape password:</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>`;
-    return { to: recipientEmail, subject, text, html };
-  }
-
-  createEmailVerificationEmail(recipientEmail: string, recipientName: string, verificationUrl: string): EmailTemplate {
-    const subject = 'Verify your ScholarScape email';
-    const text = `Hi ${recipientName},\n\nVerify your ScholarScape email address here:\n${verificationUrl}\n\nThis link expires in 24 hours.`;
-    const html = `<p>Hi ${recipientName},</p><p>Verify your ScholarScape email address by clicking below:</p><p><a href="${verificationUrl}">Verify your email</a></p><p>This link expires in 24 hours.</p>`;
-    return { to: recipientEmail, subject, text, html };
-  }
-
   // Project sharing email
   createProjectShareEmail(
     recipientEmail: string,

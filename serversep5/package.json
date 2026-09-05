@@ -1,0 +1,18 @@
+{
+  "name": "researchcollab-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm install --prefix .. && npm run build --prefix ..",
+    "start": "NODE_ENV=production node ../dist/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "firebase-admin": "^14.2.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0"
+  }
+}

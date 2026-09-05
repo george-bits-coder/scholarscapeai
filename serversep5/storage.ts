@@ -120,7 +120,7 @@ export interface IStorage {
   getLiveEventRegistrations(eventId: string): Promise<string[]>;
   registerForLiveEvent(eventId: string, userId: string): Promise<{ attendeeCount: number; registered: boolean; attendees: string[] }>;
 
-  getRecentActivities(limit?: number, actorId?: string): Promise<Activity[]>;
+  getRecentActivities(limit?: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
   getFeed(userId: string): Promise<any[]>;
   createFeedPost(post: any): Promise<any>;

@@ -1,7 +1,7 @@
 /**
  * Email Service Module
  * 
- * Handles email notifications using Resend.
+ * Handles email notifications using SendGrid service.
  * Provides templates for various email types (project sharing, notifications, etc.)
  * Includes admin copy functionality to forward all emails to admin for monitoring.
  * 
@@ -20,16 +20,19 @@
  * - HTML and text email templates
  * 
  * Environment Variables Required:
- * - RESEND_API_KEY: Resend API key (optional, will disable email if not set)
+ * - SENDGRID_API_KEY: SendGrid API key (optional, will disable email if not set)
  */
 
-import { Resend } from 'resend';
+import { MailService } from '@sendgrid/mail';
 
-if (!process.env.RESEND_API_KEY) {
-  console.warn("RESEND_API_KEY not set - email notifications will be disabled");
+if (!process.env.SENDGRID_API_KEY) {
+  console.warn("SENDGRID_API_KEY not set - email notifications will be disabled");
 }
 
-const mailService = new Resend(process.env.RESEND_API_KEY);
+const mailService = new MailService();
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 export interface EmailTemplate {
   to: string;
@@ -39,28 +42,24 @@ export interface EmailTemplate {
 }
 
 export class EmailService {
-  private fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-  private adminEmail = process.env.EMAIL_ADMIN || 'hellorblend@gmail.com';
+  private fromEmail = 'debanjanborthakur@gmail.com'; // Use verified email for SendGrid
+  private adminEmail = 'debanjanborthakur@gmail.com'; // Admin always gets notified
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
-    if (!process.env.RESEND_API_KEY) {
-      console.error('Email was not sent because RESEND_API_KEY is not configured:', {
-        subject: template.subject,
-        recipient: template.to,
-      });
-      return false;
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('Email would be sent:', template.subject, 'to', template.to);
+      return true; // Return true in development when no key is set
     }
 
     try {
       // Send to the recipient
-      const { error: recipientError } = await mailService.emails.send({
+      await mailService.send({
         to: template.to,
         from: this.fromEmail,
         subject: template.subject,
         text: template.text,
         html: template.html,
       });
-      if (recipientError) throw recipientError;
       console.log('Email sent successfully to:', template.to);
 
       // Always send a copy to admin for monitoring
@@ -75,14 +74,13 @@ export class EmailService {
         ${template.html}
       `;
 
-      const { error: adminError } = await mailService.emails.send({
+      await mailService.send({
         to: this.adminEmail,
         from: this.fromEmail,
         subject: adminSubject,
         text: adminText,
         html: adminHtml,
       });
-      if (adminError) throw adminError;
       console.log('Admin notification sent to:', this.adminEmail);
       
       return true;

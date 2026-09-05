@@ -46,9 +46,3 @@ if (missing.length > 0) {
       "Ensure .env is present in the project root or server folder and contains Firebase values.",
   );
 }
-
-if (!process.env.RESEND_API_KEY) {
-  console.warn(
-    "RESEND_API_KEY is missing. Account verification and password reset emails will not be delivered.",
-  );
-}

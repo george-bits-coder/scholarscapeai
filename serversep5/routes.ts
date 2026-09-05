@@ -256,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (q) {
         users = users.filter((u: User) => {
-          const name = (u.fullName || u.name || u.username || '').toString().toLowerCase();
+          const name = (u.name || '').toString().toLowerCase();
           const affiliation = (u.affiliation || u.organization || '').toString().toLowerCase();
           const field = (u.field || '').toString().toLowerCase();
           return name.includes(q) || affiliation.includes(q) || field.includes(q);
@@ -267,17 +267,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         users = users.filter((u: User) => ((u.field || '').toString().toLowerCase().includes(fieldParam)));
       }
 
-      const uniqueUsers = Array.from(new Map(users.map((user: User) => [user.id, user])).values());
-
       // Remove passwords from the response
-      const publicUsers = uniqueUsers.map((user: User) => {
+      const publicUsers = users.map((user: User) => {
         const { password, ...publicUser } = user;
-        return {
-          ...publicUser,
-          fullName: user.fullName || user.name || user.username || 'Unnamed user',
-          name: user.name || user.fullName || user.username || 'Unnamed user',
-          role: String(user.role || '').trim(),
-        };
+        return publicUser;
       });
 
       res.json(publicUsers);
@@ -390,14 +383,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/activities", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
     try {
-      const requestedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
-      const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 10;
-      const activities = await storage.getRecentActivities(limit, req.user!.id);
+      const activities = await storage.getRecentActivities(10);
       res.json(activities);
     } catch (error: any) {
       console.error("Error fetching recent activities:", error);

@@ -318,10 +318,9 @@ export class FirebaseStorage implements IStorage {
     return { attendeeCount: attendees.length, registered: true, attendees };
   }
 
-  async getRecentActivities(limit = 10, actorId?: string): Promise<Activity[]> {
+  async getRecentActivities(limit = 10): Promise<Activity[]> {
     const activities = await this.listItems<Activity>("activities");
     return activities
-      .filter((activity) => !actorId || activity.actorId === actorId)
       .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
       .slice(0, limit);
   }
@@ -653,8 +652,7 @@ export class FirebaseStorage implements IStorage {
 
   async getUsersByRole(role: string): Promise<User[]> {
     let users = await this.listItems<User>("users");
-    const normalizedRole = role.trim().toLowerCase();
-    const filtered = users.filter((user) => String(user.role || '').trim().toLowerCase() === normalizedRole);
+    const filtered = users.filter((user) => user.role === role);
     console.log(`[FirebaseStorage] Found ${filtered.length} users with role "${role}"`);
     return filtered;
   }

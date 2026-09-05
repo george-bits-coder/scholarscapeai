@@ -6,6 +6,7 @@ import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
+import { fortaledetails } from "./decision.ts";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes

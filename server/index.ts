@@ -32,6 +32,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { fortaledetails } from "./decision.ts";
 
 const app = express();
 app.use(cors({

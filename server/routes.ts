@@ -72,6 +72,7 @@ import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema, type User, type UserInterests } from "@shared/schema";
 import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
+import { fortaledetails } from "./decision.ts";
 
 // Helper to extract user's name (schema uses 'name', not 'fullName')
 function getDisplayName(user: { name?: string; username?: string } | null | undefined) {
@@ -170,6 +171,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         flyerUrl: typeof flyerUrl === "string" && flyerUrl.trim() ? flyerUrl.trim() : null,
       };
 
+      const discussion = [
+        `We are planning a research project with title: ${projectData.title}`,
+        `Description: ${projectData.description}`,
+        `Required skills: ${JSON.stringify(projectData.requiredSkills ?? [])}`,
+        `Compensation: ${projectData.compensation ?? "Not specified"}`,
+        `Timeline: ${projectData.timeline ?? "Not specified"}`,
+      ].join("\n");
+      const resultcheck = await fortaledetails(discussion);
+      console.log("AI decision response:", JSON.stringify(resultcheck, null, 2));
+      if (resultcheck.validProject !== "yes") {
+        return res.status(400).json({ error: "Project didn't pass AI validation" });
+      }
       const project = await storage.createProject(projectData as any);
       try {
         await storage.createActivity({

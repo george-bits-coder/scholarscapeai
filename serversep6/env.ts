@@ -47,8 +47,8 @@ if (missing.length > 0) {
   );
 }
 
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+if (!process.env.RESEND_API_KEY) {
   console.warn(
-    "GMAIL_USER or GMAIL_APP_PASSWORD is missing. Account verification and password reset emails will not be delivered.",
+    "RESEND_API_KEY is missing. Account verification and password reset emails will not be delivered.",
   );
 }

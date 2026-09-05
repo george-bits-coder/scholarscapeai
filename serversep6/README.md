@@ -8,7 +8,7 @@ This folder contains the backend API server for the ResearchCollab application. 
 server/
 ├── auth.ts                 # Authentication setup with Passport.js
 ├── database.ts             # Drizzle ORM database initialization
-├── emailService.ts         # Email service for sending notifications (Gmail/Nodemailer)
+├── emailService.ts         # Email service for sending notifications (Resend)
 ├── env.ts                  # Environment variable configuration loader
 ├── firebase.ts             # Firebase initialization and database operations
 ├── firebaseStorage.ts      # Firebase storage interface and implementations
@@ -104,7 +104,7 @@ Storage interface definitions:
 ### Services
 
 #### `emailService.ts`
-Email notification service using Gmail through Nodemailer:
+Email notification service using Resend:
 - `EmailService` class for sending emails
 - `sendEmail()` - Sends email to recipient and admin copy
 - `createProjectShareEmail()` - Templates for project sharing notifications
@@ -156,7 +156,7 @@ Firebase Cloud Functions entry point:
 - **firebase-admin** - Firebase SDK
 - **drizzle-orm** - ORM for database
 - **openai** - AI embeddings and matching
-- **nodemailer** - Gmail email transport
+- **resend** - Email service
 - **vite** - Development server and build tool
 
 ## 🚀 Environment Variables Required
@@ -168,9 +168,8 @@ FIREBASE_PRIVATE_KEY        # Firebase private key
 FIREBASE_DATABASE_URL       # Firebase Realtime Database URL
 DATABASE_URL               # Neon PostgreSQL connection string
 OPENAI_API_KEY             # OpenAI API key (optional, for matching)
-GMAIL_USER                 # Gmail account address used to send email
-GMAIL_APP_PASSWORD         # 16-character Google app password (not the Gmail login password)
-GMAIL_FROM_EMAIL           # Optional From address; defaults to GMAIL_USER
+RESEND_API_KEY             # Resend API key (required for email)
+RESEND_FROM_EMAIL          # Verified Resend sender, e.g. onboarding@resend.dev
 EMAIL_ADMIN                # Optional admin copy recipient
 SESSION_SECRET             # Session encryption secret
 PORT                       # Server port (default: 8080)

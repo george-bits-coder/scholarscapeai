@@ -1,7 +1,7 @@
 /**
  * Email Service Module
  * 
- * Handles email notifications using Gmail through Nodemailer.
+ * Handles email notifications using Resend.
  * Provides templates for various email types (project sharing, notifications, etc.)
  * Includes admin copy functionality to forward all emails to admin for monitoring.
  * 
@@ -16,21 +16,20 @@
  * Features:
  * - Sends emails to primary recipient
  * - Automatically forwards copy to admin email for auditing
- * - Fallback mode when Gmail credentials are not configured (logs instead of sending)
+ * - Fallback mode when API key not configured (logs instead of sending)
  * - HTML and text email templates
  * 
  * Environment Variables Required:
- * - GMAIL_USER: Gmail address used to send email
- * - GMAIL_APP_PASSWORD: Gmail app password for the account
- * - GMAIL_FROM_EMAIL: Optional display address (defaults to GMAIL_USER)
+ * - RESEND_API_KEY: Resend API key (optional, will disable email if not set)
  */
 
-import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-  console.warn("GMAIL_USER or GMAIL_APP_PASSWORD not set - email notifications will be disabled");
+if (!process.env.RESEND_API_KEY) {
+  console.warn("RESEND_API_KEY not set - email notifications will be disabled");
 }
+
+const mailService = new Resend(process.env.RESEND_API_KEY);
 
 export interface EmailTemplate {
   to: string;
@@ -40,21 +39,12 @@ export interface EmailTemplate {
 }
 
 export class EmailService {
-  private fromEmail = process.env.GMAIL_FROM_EMAIL || process.env.GMAIL_USER || '';
+  private fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   private adminEmail = process.env.EMAIL_ADMIN || 'hellorblend@gmail.com';
-  private mailService: Transporter | null = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
-    ? nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD,
-        },
-      })
-    : null;
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
-    if (!this.mailService) {
-      console.error('Email was not sent because Gmail credentials are not configured:', {
+    if (!process.env.RESEND_API_KEY) {
+      console.error('Email was not sent because RESEND_API_KEY is not configured:', {
         subject: template.subject,
         recipient: template.to,
       });
@@ -63,34 +53,37 @@ export class EmailService {
 
     try {
       // Send to the recipient
-      await this.mailService.sendMail({
+      const { error: recipientError } = await mailService.emails.send({
         to: template.to,
         from: this.fromEmail,
         subject: template.subject,
         text: template.text,
         html: template.html,
       });
+      if (recipientError) throw recipientError;
       console.log('Email sent successfully to:', template.to);
 
-      // Never forward authentication links because they grant account access.
-      const isAuthenticationEmail = template.subject.includes('password') || template.subject.includes('email');
-      if (this.adminEmail && !isAuthenticationEmail) {
-        await this.mailService.sendMail({
-          to: this.adminEmail,
-          from: this.fromEmail,
-          subject: `[ADMIN] ${template.subject}`,
-          text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
-          html: `
-            <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
-              <h3 style="color: #007bff; margin: 0;">Admin Notification</h3>
-              <p style="margin: 5px 0;"><strong>Original recipient:</strong> ${template.to}</p>
-              <p style="margin: 5px 0;"><strong>Activity:</strong> ${template.subject}</p>
-            </div>
-            ${template.html}
-          `,
-        });
-        console.log('Admin notification sent to:', this.adminEmail);
-      }
+      // Always send a copy to admin for monitoring
+      const adminSubject = `[ADMIN] ${template.subject}`;
+      const adminText = `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`;
+      const adminHtml = `
+        <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
+          <h3 style="color: #007bff; margin: 0;">Admin Notification</h3>
+          <p style="margin: 5px 0;"><strong>Original recipient:</strong> ${template.to}</p>
+          <p style="margin: 5px 0;"><strong>Activity:</strong> ${template.subject}</p>
+        </div>
+        ${template.html}
+      `;
+
+      const { error: adminError } = await mailService.emails.send({
+        to: this.adminEmail,
+        from: this.fromEmail,
+        subject: adminSubject,
+        text: adminText,
+        html: adminHtml,
+      });
+      if (adminError) throw adminError;
+      console.log('Admin notification sent to:', this.adminEmail);
       
       return true;
     } catch (error) {

@@ -41,32 +41,19 @@ export interface EmailTemplate {
 
 export class EmailService {
   private fromEmail = process.env.GMAIL_FROM_EMAIL || process.env.GMAIL_USER || '';
-  private fromName = process.env.GMAIL_FROM_NAME || 'ScholarScape';
   private adminEmail = process.env.EMAIL_ADMIN || 'hellorblend@gmail.com';
-  private mailService: Transporter | null = null;
-
-  private getMailService(): Transporter | null {
-    if (this.mailService) return this.mailService;
-
-    const user = process.env.GMAIL_USER?.trim();
-    const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
-    if (!user || !password) return null;
-
-    this.fromEmail = process.env.GMAIL_FROM_EMAIL?.trim() || user;
-    this.fromName = process.env.GMAIL_FROM_NAME?.trim() || 'ScholarScape';
-    this.mailService = nodemailer.createTransport({
-      service: 'gmail',
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 30000,
-      auth: { user, pass: password },
-    });
-    return this.mailService;
-  }
+  private mailService: Transporter | null = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD,
+        },
+      })
+    : null;
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
-    const mailService = this.getMailService();
-    if (!mailService) {
+    if (!this.mailService) {
       console.error('Email was not sent because Gmail credentials are not configured:', {
         subject: template.subject,
         recipient: template.to,
@@ -75,16 +62,10 @@ export class EmailService {
     }
 
     try {
-      await mailService.verify();
       // Send to the recipient
-      await mailService.sendMail({
+      await this.mailService.sendMail({
         to: template.to,
-        from: { name: this.fromName, address: this.fromEmail },
-        envelope: { from: this.fromEmail, to: template.to },
-        headers: {
-          'Auto-Submitted': 'auto-generated',
-          'X-Auto-Response-Suppress': 'All',
-        },
+        from: this.fromEmail,
         subject: template.subject,
         text: template.text,
         html: template.html,
@@ -94,7 +75,7 @@ export class EmailService {
       // Never forward authentication links because they grant account access.
       const isAuthenticationEmail = template.subject.includes('password') || template.subject.includes('email');
       if (this.adminEmail && !isAuthenticationEmail) {
-        await mailService.sendMail({
+        await this.mailService.sendMail({
           to: this.adminEmail,
           from: this.fromEmail,
           subject: `[ADMIN] ${template.subject}`,
@@ -114,13 +95,7 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send email:', error);
-      console.error('Error details:', {
-        code: (error as any)?.code,
-        responseCode: (error as any)?.responseCode,
-        response: (error as any)?.response,
-        command: (error as any)?.command,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return false;
     }
   }

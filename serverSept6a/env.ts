@@ -31,7 +31,7 @@ const rootEnv = path.resolve(__dirname, "../.env");
 const localEnv = path.resolve(__dirname, ".env");
 
 dotenv.config({ path: rootEnv });
-dotenv.config({ path: localEnv, override: true });
+dotenv.config({ path: localEnv });
 
 const missing = [
   "FIREBASE_PROJECT_ID",

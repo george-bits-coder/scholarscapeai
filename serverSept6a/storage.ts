@@ -143,8 +143,6 @@ export interface IStorage {
   getMessages(filters: { senderId?: string; receiverId?: string; projectId?: string }): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<void>;
-  markMessagesAsRead(userId: string, otherUserId: string): Promise<void>;
-  getUnreadMessageCount(userId: string): Promise<number>;
 
   getGrants(filters?: { region?: string; tags?: string[] }): Promise<Grant[]>;
   createGrant(grant: InsertGrant): Promise<Grant>;
@@ -152,7 +150,6 @@ export interface IStorage {
   getNotifications(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
-  getUnreadNotificationCount(userId: string): Promise<number>;
 
   getUsersByRole(role: string): Promise<User[]>;
   // Connections

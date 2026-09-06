@@ -1128,20 +1128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/notifications/unread-count", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const count = await storage.getUnreadNotificationCount(req.user!.id);
-      res.json({ count });
-    } catch (error: any) {
-      console.error('Error fetching unread notification count:', error);
-      res.status(500).json({ error: "Failed to fetch unread notification count" });
-    }
-  });
-
   app.put("/api/notifications/:id/read", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });

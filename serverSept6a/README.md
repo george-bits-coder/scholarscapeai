@@ -171,7 +171,6 @@ OPENAI_API_KEY             # OpenAI API key (optional, for matching)
 GMAIL_USER                 # Gmail account address used to send email
 GMAIL_APP_PASSWORD         # 16-character Google app password (not the Gmail login password)
 GMAIL_FROM_EMAIL           # Optional From address; defaults to GMAIL_USER
-GMAIL_FROM_NAME            # Optional sender name; defaults to ScholarScape
 EMAIL_ADMIN                # Optional admin copy recipient
 SESSION_SECRET             # Session encryption secret
 PORT                       # Server port (default: 8080)

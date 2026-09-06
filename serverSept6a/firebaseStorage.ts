@@ -601,16 +601,6 @@ export class FirebaseStorage implements IStorage {
     return this.saveItem<Message>("messages", id, message);
   }
 
-  async markMessagesAsRead(userId: string, otherUserId: string): Promise<void> {
-    const messages = await this.getMessages({ receiverId: userId, senderId: otherUserId });
-    await Promise.all(messages.filter((message) => !message.readAt).map((message) => this.markMessageAsRead(message.id)));
-  }
-
-  async getUnreadMessageCount(userId: string): Promise<number> {
-    const messages = await this.getMessages({ receiverId: userId });
-    return messages.filter((message) => !message.readAt).length;
-  }
-
   async markMessageAsRead(id: string): Promise<void> {
     const existing = await this.getItem<Message>("messages", id);
     if (!existing) throw new Error("Message not found");
@@ -659,11 +649,6 @@ export class FirebaseStorage implements IStorage {
     const existing = await this.getItem<Notification>("notifications", id);
     if (!existing) throw new Error("Notification not found");
     await setValue(`notifications/${id}`, { ...existing, readAt: nowIso() });
-  }
-
-  async getUnreadNotificationCount(userId: string): Promise<number> {
-    const notifications = await this.getNotifications(userId);
-    return notifications.filter((notification) => !notification.readAt).length;
   }
 
   async getUsersByRole(role: string): Promise<User[]> {

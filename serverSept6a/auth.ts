@@ -193,10 +193,7 @@ export function setupAuth(app: Express) {
           user.name || (user as any).fullName || user.username || "there",
           resetUrl,
         );
-        const sent = await emailService.sendEmail(emailTemplate);
-        if (!sent) {
-          console.error("Password reset email was not delivered", { recipient: email });
-        }
+        await emailService.sendEmail(emailTemplate);
       }
 
       return res.status(200).json(genericResponse);
@@ -337,10 +334,9 @@ async function sendVerificationEmail(req: Express.Request, user: any) {
   const verificationUrl = `${appUrl}/verify-email?token=${token}`;
   const recipientEmail = String(user.email || "").trim();
   if (!recipientEmail) throw new Error("User has no email address");
-  const sent = await emailService.sendEmail(emailService.createEmailVerificationEmail(
+  await emailService.sendEmail(emailService.createEmailVerificationEmail(
     recipientEmail,
     user.name || user.fullName || user.username || "there",
     verificationUrl,
   ));
-  if (!sent) throw new Error("Verification email could not be delivered");
 }

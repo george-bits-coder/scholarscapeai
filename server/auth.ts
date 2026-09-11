@@ -169,7 +169,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/password-reset/request", async (req, res) => {
-    console.log("inside password reset request")
+    console.log("inside password reset request", req.body)
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const genericResponse = { message: "If an account exists for that email, a password reset link has been sent." };
 
@@ -191,12 +191,14 @@ console.log("User found for password reset:", user ? user.id : "none");
         });
 
         const appUrl = (process.env.APP_URL || req.get("origin") || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+        console.log("App URL for password reset:", appUrl);
         const resetUrl = `${appUrl}/reset-password?token=${token}`;
         const emailTemplate = emailService.createPasswordResetEmail(
           email,
           user.name || (user as any).fullName || user.username || "there",
           resetUrl,
         );
+        console.log("Sending password reset email to:", emailTemplate.to);
         const sent = await emailService.sendEmail(emailTemplate);
         if (!sent) {
           console.error("Password reset email was not delivered", { recipient: email });

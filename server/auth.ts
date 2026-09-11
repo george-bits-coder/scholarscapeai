@@ -198,6 +198,7 @@ console.log("User found for password reset:", user ? user.id : "none");
           user.name || (user as any).fullName || user.username || "there",
           resetUrl,
         );
+        console.log("Password reset email template created for:", emailTemplate);
         console.log("Sending password reset email to:", emailTemplate.to);
         const sent = await emailService.sendEmail(emailTemplate);
         if (!sent) {

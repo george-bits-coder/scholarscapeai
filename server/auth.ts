@@ -169,15 +169,19 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/password-reset/request", async (req, res) => {
+    console.log("inside password reset request")
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const genericResponse = { message: "If an account exists for that email, a password reset link has been sent." };
 
     if (!email) return res.status(200).json(genericResponse);
-
+console.log("Password reset request for email:", email);
     try {
-      const users = await listValues<User>("users");
-      const user = users.find((candidate) => String((candidate as any).email || '').trim().toLowerCase() === email);
 
+      console.log("inside password reset request for email:", email);
+      const users = await listValues<User>("users");
+      console.log("Total users fetched for password reset:", users.length);
+      const user = users.find((candidate) => String((candidate as any).email || '').trim().toLowerCase() === email);
+console.log("User found for password reset:", user ? user.id : "none");
       if (user) {
         const token = randomBytes(32).toString("hex");
         const tokenHash = createHash("sha256").update(token).digest("hex");

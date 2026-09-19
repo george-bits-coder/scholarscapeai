@@ -380,14 +380,6 @@ export class FirebaseStorage implements IStorage {
     return updated;
   }
 
-  async updateFeedPost(postId: string, updates: any): Promise<any> {
-    const existing = await this.getItem<any>("feedPosts", postId);
-    if (!existing) throw new Error("Feed post not found");
-    const updated = { ...existing, ...updates, updatedAt: nowIso() };
-    await setValue(`feedPosts/${postId}`, updated);
-    return this.getFeedPost(postId);
-  }
-
   async getFeedComments(postId: string): Promise<any[]> {
     const comments = await this.listItems<any>("feedComments");
     const filtered = comments
@@ -468,29 +460,6 @@ export class FirebaseStorage implements IStorage {
         university: author?.affiliation || 'ScholarScape',
       },
       timestamp: formatRelativeTime(feedComment.createdAt),
-    };
-  }
-
-  async getFeedComment(commentId: string): Promise<any | undefined> {
-    return this.getItem<any>("feedComments", commentId);
-  }
-
-  async updateFeedComment(commentId: string, updates: any): Promise<any> {
-    const existing = await this.getFeedComment(commentId);
-    if (!existing) throw new Error("Feed comment not found");
-    const updated = { ...existing, ...updates, updatedAt: nowIso() };
-    await setValue(`feedComments/${commentId}`, updated);
-    const author = await this.getUser(updated.authorId);
-    return {
-      ...updated,
-      author: {
-        id: author?.id,
-        name: getUserDisplayName(author),
-        avatar: getInitials(getUserDisplayName(author)),
-        title: author?.role || 'Member',
-        university: author?.affiliation || 'ScholarScape',
-      },
-      timestamp: formatRelativeTime(updated.createdAt),
     };
   }
 

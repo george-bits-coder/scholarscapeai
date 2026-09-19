@@ -252,11 +252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/researchers', async (req, res) => {
     try {
       const q = (req.query.q || '').toString().trim().toLowerCase();
-      const nameParam = (req.query.name || '').toString().trim().toLowerCase();
-      const roleParam = (req.query.role || '').toString().trim().toLowerCase();
-      const fieldParam = (req.query.field || '').toString().trim().toLowerCase();
-      const affiliationParam = (req.query.affiliation || '').toString().trim().toLowerCase();
-      const parsedLimit = Number.parseInt((req.query.limit || '').toString(), 10);
+      const roleParam = req.query.role ? String(req.query.role).toLowerCase() : '';
+      const fieldParam = req.query.field ? String(req.query.field).toLowerCase() : '';
 
       let users: any[] = [];
       
@@ -272,41 +269,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (q) {
         users = users.filter((u: User) => {
-          const searchableText = [
-            u.fullName,
-            u.name,
-            u.username,
-            u.email,
-            u.affiliation,
-            u.organization,
-            u.field,
-            u.role,
-            u.bio,
-            u.interests,
-          ].filter(Boolean).join(' ').toLowerCase();
-          return searchableText.includes(q);
-        });
-      }
-
-      if (nameParam) {
-        users = users.filter((u: User) => {
           const name = (u.fullName || u.name || u.username || '').toString().toLowerCase();
-          return name.includes(nameParam);
+          const affiliation = (u.affiliation || u.organization || '').toString().toLowerCase();
+          const field = (u.field || '').toString().toLowerCase();
+          return name.includes(q) || affiliation.includes(q) || field.includes(q);
         });
       }
 
       if (fieldParam) {
-        users = users.filter((u: User) => {
-          const field = [u.field, u.interests].filter(Boolean).join(' ').toLowerCase();
-          return field.includes(fieldParam);
-        });
-      }
-
-      if (affiliationParam) {
-        users = users.filter((u: User) => {
-          const affiliation = (u.affiliation || u.organization || '').toString().toLowerCase();
-          return affiliation.includes(affiliationParam);
-        });
+        users = users.filter((u: User) => ((u.field || '').toString().toLowerCase().includes(fieldParam)));
       }
 
       const uniqueUsers = Array.from(new Map(users.map((user: User) => [user.id, user])).values());
@@ -322,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
-      res.json(parsedLimit > 0 ? publicUsers.slice(0, parsedLimit) : publicUsers);
+      res.json(publicUsers);
     } catch (error: any) {
       console.error('Error fetching researchers:', error);
       res.status(500).json({ error: 'Failed to fetch researchers' });
@@ -336,20 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         events.map(async (event) => {
           const owner = await storage.getUser(event.ownerId);
           const registrations = await storage.getLiveEventRegistrations(event.id);
-          const isOwner = req.isAuthenticated() && req.user!.id === event.ownerId;
-          const attendees = isOwner
-            ? (await Promise.all(registrations.map((userId) => storage.getUser(userId))))
-              .filter(Boolean)
-              .map(({ password, ...user }: any) => user)
-            : undefined;
-          return {
-            ...event,
-            owner,
-            attendeeCount: registrations.length,
-            registered: Boolean(req.user && registrations.includes(req.user.id)),
-            ...(isOwner ? { attendees } : {}),
-            shareUrl: event.shareUrl || `/events/${event.id}`,
-          };
+          return { ...event, owner, attendeeCount: registrations.length, shareUrl: event.shareUrl || `/events/${event.id}` };
         }),
       );
       res.json(eventsWithOwners);
@@ -366,19 +324,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const owner = await storage.getUser(event.ownerId);
       const registrations = await storage.getLiveEventRegistrations(event.id);
-      const isOwner = req.isAuthenticated() && req.user!.id === event.ownerId;
-      const attendees = isOwner
-        ? (await Promise.all(registrations.map((userId) => storage.getUser(userId))))
-          .filter(Boolean)
-          .map(({ password, ...user }: any) => user)
-        : undefined;
       res.json({
         ...event,
         posterUrl: event.posterUrl || null, // ✅ Ensure this is returned
         owner,
         attendeeCount: registrations.length,
-        registered: Boolean(req.user && registrations.includes(req.user.id)),
-        ...(isOwner ? { attendees } : {}),
         shareUrl: event.shareUrl || `/events/${event.id}`,
       });
     } catch (error: any) {
@@ -1069,16 +1019,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const acceptedConnections = await storage.getConnectionsForUser(req.user!.id);
-      const receiverId = req.body?.receiverId;
-      const isConnected = acceptedConnections.some((connection: any) => {
-        const otherUserId = connection.fromUserId === req.user!.id ? connection.toUserId : connection.fromUserId;
-        return otherUserId === receiverId;
-      });
-      if (!isConnected) {
-        return res.status(403).json({ error: "You can only message connected users" });
-      }
-
       const messageData = insertMessageSchema.parse({
         ...req.body,
         senderId: req.user!.id,
@@ -1137,15 +1077,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
     try {
       const otherId = req.params.otherId;
-      const acceptedConnections = await storage.getConnectionsForUser(req.user!.id);
-      const isConnected = acceptedConnections.some((connection: any) => {
-        const connectedUserId = connection.fromUserId === req.user!.id ? connection.toUserId : connection.fromUserId;
-        return connectedUserId === otherId;
-      });
-      if (!isConnected) {
-        return res.status(403).json({ error: 'You can only view conversations with connected users' });
-      }
-
       const allMessages = await storage.getMessages({});
       const thread = allMessages.filter((m) =>
         (m.senderId === req.user!.id && m.receiverId === otherId) ||
@@ -1355,13 +1286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
     try {
       const requests = await storage.getConnectionRequestsForUser(req.user!.id);
-      const enrichedRequests = await Promise.all(requests.map(async (request: any) => {
-        const requester = await storage.getUser(request.fromUserId);
-        if (!requester) return request;
-        const { password, ...publicRequester } = requester;
-        return { ...request, requester: publicRequester };
-      }));
-      res.json(enrichedRequests);
+      res.json(requests);
     } catch (error: any) {
       console.error('Error fetching connection requests:', error);
       res.status(500).json({ error: 'Failed to fetch connection requests' });
@@ -1936,32 +1861,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/feed/posts/:postId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const post = await storage.getFeedPost(req.params.postId);
-      if (!post) return res.status(404).json({ error: "Post not found" });
-      if (post.authorId !== req.user!.id) {
-        return res.status(403).json({ error: "You can only edit your own posts" });
-      }
-
-      const { content, image } = req.body ?? {};
-      const nextContent = typeof content === "string" ? content.trim() : post.content || "";
-      const nextImage = typeof image === "string" ? image.trim() || null : post.image || null;
-      if (!nextContent && !nextImage) {
-        return res.status(400).json({ error: "Post content or image is required" });
-      }
-
-      res.json(await storage.updateFeedPost(req.params.postId, { content: nextContent, image: nextImage }));
-    } catch (error: any) {
-      console.error('Error updating feed post:', error);
-      res.status(500).json({ error: "Failed to update feed post" });
-    }
-  });
-
   app.post("/api/feed/:postId/like", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -2035,30 +1934,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error creating feed comment:', error);
       res.status(500).json({ error: "Failed to create feed comment" });
-    }
-  });
-
-  app.put("/api/feed/comments/:commentId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    try {
-      const comment = await storage.getFeedComment(req.params.commentId);
-      if (!comment) return res.status(404).json({ error: "Comment not found" });
-      if (comment.authorId !== req.user!.id) {
-        return res.status(403).json({ error: "You can only edit your own comments" });
-      }
-
-      const { content } = req.body ?? {};
-      if (typeof content !== "string" || !content.trim()) {
-        return res.status(400).json({ error: "Comment content is required" });
-      }
-
-      res.json(await storage.updateFeedComment(req.params.commentId, { content: content.trim() }));
-    } catch (error: any) {
-      console.error('Error updating feed comment:', error);
-      res.status(500).json({ error: "Failed to update feed comment" });
     }
   });
 

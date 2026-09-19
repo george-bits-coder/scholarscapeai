@@ -124,13 +124,10 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
   getFeed(userId: string): Promise<any[]>;
   createFeedPost(post: any): Promise<any>;
-  updateFeedPost(postId: string, updates: any): Promise<any>;
   toggleFeedLike(postId: string, userId: string): Promise<any>;
   getFeedComments(postId: string): Promise<any[]>;
   getFeedPost(postId: string): Promise<any | undefined>;
-  getFeedComment(commentId: string): Promise<any | undefined>;
   createFeedComment(postId: string, comment: any): Promise<any>;
-  updateFeedComment(commentId: string, updates: any): Promise<any>;
 
   getOpportunity(id: string): Promise<Opportunity | undefined>;
   getOpportunities(filters?: { studentId?: string; status?: string }): Promise<Opportunity[]>;

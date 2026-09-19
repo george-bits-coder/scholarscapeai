@@ -49,6 +49,6 @@ if (missing.length > 0) {
 
 if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
   console.warn(
-    "GMAIL_USER or GMAIL_APP_PASSWORD is missing. Gmail email delivery is disabled; configure RESEND_API_KEY for HTTPS email delivery.",
+    "GMAIL_USER or GMAIL_APP_PASSWORD is missing. Account verification and password reset emails will not be delivered.",
   );
 }

@@ -55,10 +55,7 @@ export class EmailService {
     this.fromEmail = process.env.GMAIL_FROM_EMAIL?.trim() || user;
     this.fromName = process.env.GMAIL_FROM_NAME?.trim() || 'ScholarScape';
     this.mailService = nodemailer.createTransport({
-      host: process.env.GMAIL_SMTP_HOST?.trim() || 'smtp.gmail.com',
-      port: Number(process.env.GMAIL_SMTP_PORT || 587),
-      secure: process.env.GMAIL_SMTP_SECURE === 'true',
-      requireTLS: true,
+      service: 'gmail',
       connectionTimeout: 15000,
       greetingTimeout: 15000,
       socketTimeout: 30000,
@@ -67,61 +64,7 @@ export class EmailService {
     return this.mailService;
   }
 
-  private async sendWithResend(template: EmailTemplate, apiKey: string): Promise<boolean> {
-    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || this.fromEmail;
-    if (!fromEmail) return false;
-
-    const messages = [
-      {
-        from: `${this.fromName} <${fromEmail}>`,
-        to: [template.to],
-        subject: template.subject,
-        text: template.text,
-        html: template.html,
-      },
-    ];
-    const isAuthenticationEmail = template.subject.toLowerCase().includes('password') ||
-      template.subject.toLowerCase().includes('email');
-    if (this.adminEmail && !isAuthenticationEmail) {
-      messages.push({
-        from: `${this.fromName} <${fromEmail}>`,
-        to: [this.adminEmail],
-        subject: `[ADMIN] ${template.subject}`,
-        text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
-        html: `<p><strong>Original recipient:</strong> ${template.to}</p>${template.html}`,
-      });
-    }
-
-    for (const message of messages) {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(message),
-      });
-      if (!response.ok) {
-        const details = await response.text();
-        throw new Error(`Resend rejected the email (${response.status}): ${details}`);
-      }
-    }
-
-    console.log('Email sent successfully via Resend to:', template.to);
-    return true;
-  }
-
   async sendEmail(template: EmailTemplate): Promise<boolean> {
-    const resendApiKey = process.env.RESEND_API_KEY?.trim();
-    if (resendApiKey) {
-      try {
-        return await this.sendWithResend(template, resendApiKey);
-      } catch (error) {
-        console.error('Failed to send email via Resend:', error);
-        return false;
-      }
-    }
-
     const mailService = this.getMailService();
     if (!mailService) {
       console.error('Email was not sent because Gmail credentials are not configured:', {

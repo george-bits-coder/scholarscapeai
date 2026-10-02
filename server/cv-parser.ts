@@ -2,6 +2,10 @@ import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 
 const MAX_TEXT_LENGTH = 30000;
+const MATCH_STOP_WORDS = new Set([
+  "about", "and", "are", "for", "from", "have", "into", "our", "project", "research",
+  "that", "the", "their", "this", "with", "will", "work", "you",
+]);
 
 function invalidCvError(message: string) {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -83,4 +87,43 @@ export async function parseCv(file: Express.Multer.File) {
     experience: readSection(lines, [/^(work\s+)?experience$/i, /^employment(\s+history)?$/i]),
     rawText: normalizedText,
   };
+}
+
+function listTerms(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;\n]/) : [];
+  return values.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function normalizeMatchText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9+#]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+export function calculateCvProjectMatchScore(project: Record<string, unknown>, cvData: Record<string, unknown>): number {
+  const cvText = normalizeMatchText([
+    ...listTerms(cvData.skills),
+    String(cvData.summary || ""),
+    String(cvData.experience || ""),
+    String(cvData.education || ""),
+    String(cvData.rawText || ""),
+  ].join(" "));
+  const requiredSkills = [...new Set([
+    ...listTerms(project.requiredSkills),
+    ...listTerms(project.skills),
+  ].map(normalizeMatchText).filter(Boolean))];
+  const matchedSkills = requiredSkills.filter((skill) => ` ${cvText} `.includes(` ${skill} `)).length;
+  const skillCoverage = requiredSkills.length ? matchedSkills / requiredSkills.length : 0;
+
+  const projectText = normalizeMatchText([
+    String(project.title || ""),
+    String(project.description || ""),
+    String(project.field || ""),
+  ].join(" "));
+  const keywords = [...new Set(projectText.split(" ").filter((word) => word.length >= 2 && !MATCH_STOP_WORDS.has(word)))];
+  const matchedKeywords = keywords.filter((word) => ` ${cvText} `.includes(` ${word} `)).length;
+  const keywordCoverage = keywords.length ? matchedKeywords / keywords.length : 0;
+
+  const relevance = requiredSkills.length && keywords.length
+    ? skillCoverage * 0.7 + keywordCoverage * 0.3
+    : requiredSkills.length ? skillCoverage : keywordCoverage;
+  return Number((relevance * 10).toFixed(1));
 }

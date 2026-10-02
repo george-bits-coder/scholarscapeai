@@ -74,7 +74,7 @@ import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 import { fortaledetails } from "./decision.ts";
 import multer from "multer";
-import { parseCv } from "./cv-parser";
+import { calculateCvProjectMatchScore, parseCv } from "./cv-parser";
 
 const applicationCvUpload = multer({
   storage: multer.memoryStorage(),
@@ -174,7 +174,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!project) return res.status(404).json({ error: 'Project not found' });
       if (project.ownerId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
       const applications = await storage.getApplicationsForProject(req.params.id);
-      res.json(applications);
+      const applicationsWithScores = await Promise.all(applications.map(async (application: any) => {
+        if (!application.cvData || typeof application.cvMatchScore === "number") return application;
+        const cvMatchScore = calculateCvProjectMatchScore(project, application.cvData);
+        try {
+          await storage.updateApplication(application.id, { cvMatchScore } as any);
+        } catch (error) {
+          console.error("Unable to save CV match score:", error);
+        }
+        return { ...application, cvMatchScore };
+      }));
+      res.json(applicationsWithScores);
     } catch (error: any) {
       console.error('Error fetching project applications:', error);
       res.status(500).json({ error: 'Failed to fetch project applications' });
@@ -803,12 +813,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate with Zod schema
       const validatedData = insertApplicationSchema.parse(applicationData);
-      const cvData = req.file ? await parseCv(req.file) : undefined;
+      let cvFile = req.file;
+      const uploadedCv = req.body?.cvFile;
+      if (!cvFile && uploadedCv) {
+        if (
+          typeof uploadedCv.fileName !== "string" ||
+          !/\.(pdf|docx)$/i.test(uploadedCv.fileName) ||
+          typeof uploadedCv.contentBase64 !== "string" ||
+          !/^[A-Za-z0-9+/]*={0,2}$/.test(uploadedCv.contentBase64)
+        ) {
+          return res.status(400).json({ error: "CV must be a valid PDF or DOCX file." });
+        }
+        const maxCvSize = 10 * 1024 * 1024;
+        if (uploadedCv.contentBase64.length > Math.ceil(maxCvSize / 3) * 4) {
+          return res.status(413).json({ error: "CV files must be 10 MB or smaller." });
+        }
+        const buffer = Buffer.from(uploadedCv.contentBase64, "base64");
+        if (buffer.length > maxCvSize) {
+          return res.status(413).json({ error: "CV files must be 10 MB or smaller." });
+        }
+        cvFile = { originalname: uploadedCv.fileName, buffer } as Express.Multer.File;
+      }
+      const cvData = cvFile ? await parseCv(cvFile) : undefined;
+      const cvMatchScore = cvData ? calculateCvProjectMatchScore(project, cvData) : undefined;
       
       // Create the application
       const application = await storage.createApplication({
         ...validatedData,
         ...(cvData ? { cvData } : {}),
+        ...(cvMatchScore !== undefined ? { cvMatchScore } : {}),
       });
       
       // Create notification for project owner

@@ -175,29 +175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (project.ownerId !== req.user!.id) return res.status(403).json({ error: 'Not authorized' });
       const applications = await storage.getApplicationsForProject(req.params.id);
       const applicationsWithScores = await Promise.all(applications.map(async (application: any) => {
-        const storedScore = Number(application.cvMatchScore);
-        if (Number.isFinite(storedScore) && storedScore >= 0 && storedScore <= 10) {
-          if (typeof application.cvMatchScore !== "number") {
-            try {
-              await storage.updateApplication(application.id, { cvMatchScore: storedScore } as any);
-            } catch (error) {
-              console.error("Unable to normalize CV match score:", error);
-            }
-          }
-          return { ...application, cvMatchScore: storedScore };
-        }
-
-        let cvData = application.cvData;
-        if (typeof cvData === "string") {
-          try {
-            cvData = JSON.parse(cvData);
-          } catch {
-            cvData = undefined;
-          }
-        }
-        if (!cvData || typeof cvData !== "object") return application;
-
-        const cvMatchScore = calculateCvProjectMatchScore(project, cvData);
+        if (!application.cvData || typeof application.cvMatchScore === "number") return application;
+        const cvMatchScore = calculateCvProjectMatchScore(project, application.cvData);
         try {
           await storage.updateApplication(application.id, { cvMatchScore } as any);
         } catch (error) {

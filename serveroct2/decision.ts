@@ -85,7 +85,7 @@ export async function fortaledetails(
           function: {
             name: "printdetails",
             description:
-              "Extracts project specifics and indicates whether the project looks valid based on those details.",
+              "Extracts project specifics and indicates whether the project looks valid based on those details.By valid we mean the fields shouldbt be blabber like bkdfkj etc etc and each field should make sense. No need to overanalyze",
             parameters: {
               type: "object",
               properties: {

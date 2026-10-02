@@ -73,31 +73,6 @@ import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, 
 import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 import { fortaledetails } from "./decision.ts";
-import multer from "multer";
-import { parseCv } from "./cv-parser";
-
-const applicationCvUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    const validExtension = /\.(pdf|docx)$/i.test(file.originalname);
-    if (!validExtension) {
-      const error: any = new Error("CV must be a PDF or DOCX file.");
-      error.statusCode = 400;
-      callback(error);
-      return;
-    }
-    callback(null, true);
-  },
-}).single("cv");
-
-function uploadApplicationCv(req: any, res: any, next: any) {
-  applicationCvUpload(req, res, (error: any) => {
-    if (!error) return next();
-    const status = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
-    res.status(status).json({ error: status === 413 ? "CV files must be 10 MB or smaller." : error.message });
-  });
-}
 
 // Helper to extract user's name (schema uses 'name', not 'fullName')
 function getDisplayName(user: { name?: string; username?: string } | null | undefined) {
@@ -111,16 +86,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Projects routes
   app.get("/api/projects", async (req, res) => {
     try {
-      const { status, owner, field, remote, minStipend, sort } = req.query;
-      const remoteValue = remote === 'true' ? true : remote === 'false' ? false : undefined;
-      const parsedMinStipend = Number(minStipend);
+      const { status, owner } = req.query;
       const projects = await storage.getProjects({
         status: status as string,
         ownerId: owner as string,
-        field: field as string,
-        remote: remoteValue,
-        minCompensation: Number.isFinite(parsedMinStipend) ? parsedMinStipend : undefined,
-        sort: sort as string,
       });
       
       // Get project owners for each project
@@ -713,12 +682,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/applications", (req, res, next) => {
+  app.post("/api/applications", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
     }
-    next();
-  }, uploadApplicationCv, async (req, res) => {
+    
+    console.log("Received application request:", req.body, "from user:", req.user);
 
     try {
       // Extract projectId correctly - handle multiple possible formats
@@ -801,15 +770,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'submitted'
       };
 
+      console.log("Application data to be validated and created:", applicationData);
+
       // Validate with Zod schema
       const validatedData = insertApplicationSchema.parse(applicationData);
-      const cvData = req.file ? await parseCv(req.file) : undefined;
       
       // Create the application
-      const application = await storage.createApplication({
-        ...validatedData,
-        ...(cvData ? { cvData } : {}),
-      });
+      const application = await storage.createApplication(validatedData);
+      console.log("Application created successfully:", application);
       
       // Create notification for project owner
       try {
@@ -875,13 +843,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: "Invalid application data",
           details: error.issues 
         });
-      }
-
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({ error: error.message });
-      }
-      if (error.statusCode === 400) {
-        return res.status(400).json({ error: error.message });
       }
       
       // Handle other errors
@@ -1381,24 +1342,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
     try {
       const connections = await storage.getConnectionsForUser(req.user!.id);
-      const enrichedConnections = await Promise.all(connections.map(async (connection: any) => {
-        const connectedUserId = connection.fromUserId === req.user!.id
-          ? connection.toUserId
-          : connection.fromUserId;
-        const user = await storage.getUser(connectedUserId) || await storage.getUserByUsername(connectedUserId);
-        if (!user) return null;
-        const { password, ...publicUser } = user;
-        return {
-          ...connection,
-          connectedUserId,
-          user: {
-            ...publicUser,
-            fullName: publicUser.fullName || publicUser.name || publicUser.username || 'ScholarScape member',
-            name: publicUser.name || publicUser.fullName || publicUser.username || 'ScholarScape member',
-          },
-        };
-      }));
-      res.json(enrichedConnections.filter(Boolean));
+      // enrich with user objects
+      const users = await storage.getUsersByRole('');
+      res.json(connections);
     } catch (error: any) {
       console.error('Error fetching connections:', error);
       res.status(500).json({ error: 'Failed to fetch connections' });

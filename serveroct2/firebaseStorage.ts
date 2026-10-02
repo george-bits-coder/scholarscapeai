@@ -219,7 +219,7 @@ export class FirebaseStorage implements IStorage {
     return this.getItem<Project>("projects", id);
   }
 
-  async getProjects(filters?: { ownerId?: string; status?: string; field?: string; remote?: boolean; minCompensation?: number; sort?: string }): Promise<Project[]> {
+  async getProjects(filters?: { ownerId?: string; status?: string }): Promise<Project[]> {
     let projects = await this.listItems<Project>("projects");
     if (filters?.ownerId) {
       projects = projects.filter((project) => project.ownerId === filters.ownerId);
@@ -227,29 +227,7 @@ export class FirebaseStorage implements IStorage {
     if (filters?.status) {
       projects = projects.filter((project) => project.status === filters.status);
     }
-    if (filters?.field) {
-      const field = filters.field.toLowerCase();
-      projects = projects.filter((project) => String(project.field || '').toLowerCase() === field);
-    }
-    if (typeof filters?.remote === 'boolean') {
-      projects = projects.filter((project) => Boolean(project.remote) === filters.remote);
-    }
-    if (typeof filters?.minCompensation === 'number') {
-      projects = projects.filter((project) => Number(project.compensation || 0) >= filters.minCompensation!);
-    }
-
-    return projects.sort((a, b) => {
-      if (filters?.sort === 'compensation-desc') {
-        return Number(b.compensation || 0) - Number(a.compensation || 0);
-      }
-      if (filters?.sort === 'compensation-asc') {
-        return Number(a.compensation || 0) - Number(b.compensation || 0);
-      }
-      if (filters?.sort === 'title-asc') {
-        return String(a.title || '').localeCompare(String(b.title || ''));
-      }
-      return (b.createdAt || "").localeCompare(a.createdAt || "");
-    });
+    return projects.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
@@ -716,7 +694,7 @@ export class FirebaseStorage implements IStorage {
 
   async getUnreadNotificationCount(userId: string): Promise<number> {
     const notifications = await this.getNotifications(userId);
-    return notifications.filter((notification) => !notification.readAt && notification.type !== 'message').length;
+    return notifications.filter((notification) => !notification.readAt).length;
   }
 
   async getUsersByRole(role: string): Promise<User[]> {

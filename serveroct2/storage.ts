@@ -107,7 +107,7 @@ export interface IStorage {
   updateUser(id: string, updates: Partial<User>): Promise<User>;
 
   getProject(id: string): Promise<Project | undefined>;
-  getProjects(filters?: { ownerId?: string; status?: string; field?: string; remote?: boolean; minCompensation?: number; sort?: string }): Promise<Project[]>;
+  getProjects(filters?: { ownerId?: string; status?: string }): Promise<Project[]>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project>;
   deleteProject(id: string): Promise<void>;

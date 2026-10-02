@@ -99,29 +99,6 @@ function uploadApplicationCv(req: any, res: any, next: any) {
   });
 }
 
-function decodeCvPayload(uploadedCv: any): Express.Multer.File {
-  if (
-    typeof uploadedCv?.fileName !== "string" ||
-    !/\.(pdf|docx)$/i.test(uploadedCv.fileName) ||
-    typeof uploadedCv.contentBase64 !== "string" ||
-    !/^[A-Za-z0-9+/]*={0,2}$/.test(uploadedCv.contentBase64)
-  ) {
-    throw Object.assign(new Error("CV must be a valid PDF or DOCX file."), { statusCode: 400 });
-  }
-
-  const maxCvSize = 10 * 1024 * 1024;
-  if (uploadedCv.contentBase64.length > Math.ceil(maxCvSize / 3) * 4) {
-    throw Object.assign(new Error("CV files must be 10 MB or smaller."), { statusCode: 413 });
-  }
-
-  const buffer = Buffer.from(uploadedCv.contentBase64, "base64");
-  if (buffer.length > maxCvSize) {
-    throw Object.assign(new Error("CV files must be 10 MB or smaller."), { statusCode: 413 });
-  }
-
-  return { originalname: uploadedCv.fileName, buffer } as Express.Multer.File;
-}
-
 // Helper to extract user's name (schema uses 'name', not 'fullName')
 function getDisplayName(user: { name?: string; username?: string } | null | undefined) {
   return user?.name || user?.username || "Someone";
@@ -232,24 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error fetching project applications:', error);
       res.status(500).json({ error: 'Failed to fetch project applications' });
-    }
-  });
-
-  app.post('/api/projects/:id/cv-match', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
-    try {
-      const project = await storage.getProject(req.params.id);
-      if (!project) return res.status(404).json({ error: 'Project not found' });
-      if (project.ownerId === req.user!.id) {
-        return res.status(400).json({ error: 'You cannot apply to your own project' });
-      }
-
-      const cvData = await parseCv(decodeCvPayload(req.body?.cvFile));
-      const cvMatchScore = calculateCvProjectMatchScore(project, cvData);
-      res.json({ cvMatchScore });
-    } catch (error: any) {
-      const status = error.statusCode || 500;
-      res.status(status).json({ error: error.message || 'Unable to calculate CV match score' });
     }
   });
 
@@ -878,7 +837,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let cvFile = req.file;
       const uploadedCv = req.body?.cvFile;
       if (!cvFile && uploadedCv) {
-        cvFile = decodeCvPayload(uploadedCv);
+        if (
+          typeof uploadedCv.fileName !== "string" ||
+          !/\.(pdf|docx)$/i.test(uploadedCv.fileName) ||
+          typeof uploadedCv.contentBase64 !== "string" ||
+          !/^[A-Za-z0-9+/]*={0,2}$/.test(uploadedCv.contentBase64)
+        ) {
+          return res.status(400).json({ error: "CV must be a valid PDF or DOCX file." });
+        }
+        const maxCvSize = 10 * 1024 * 1024;
+        if (uploadedCv.contentBase64.length > Math.ceil(maxCvSize / 3) * 4) {
+          return res.status(413).json({ error: "CV files must be 10 MB or smaller." });
+        }
+        const buffer = Buffer.from(uploadedCv.contentBase64, "base64");
+        if (buffer.length > maxCvSize) {
+          return res.status(413).json({ error: "CV files must be 10 MB or smaller." });
+        }
+        cvFile = { originalname: uploadedCv.fileName, buffer } as Express.Multer.File;
       }
       const cvData = cvFile ? await parseCv(cvFile) : undefined;
       const cvMatchScore = cvData ? calculateCvProjectMatchScore(project, cvData) : undefined;

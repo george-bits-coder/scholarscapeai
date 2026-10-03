@@ -246,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cvData = await parseCv(decodeCvPayload(req.body?.cvFile));
       const cvMatchScore = calculateCvProjectMatchScore(project, cvData);
-      res.json({ cvMatchScore, cvData });
+      res.json({ cvMatchScore });
     } catch (error: any) {
       const status = error.statusCode || 500;
       res.status(status).json({ error: error.message || 'Unable to calculate CV match score' });

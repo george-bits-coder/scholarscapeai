@@ -155,7 +155,7 @@ Firebase Cloud Functions entry point:
 - **express-session** - Session management
 - **firebase-admin** - Firebase SDK
 - **drizzle-orm** - ORM for database
-- **openai** - AI embeddings and matching
+- **openai** - AI embeddings, project matching, and CV fit scoring
 - **nodemailer** - Gmail email transport
 - **vite** - Development server and build tool
 
@@ -167,7 +167,7 @@ FIREBASE_CLIENT_EMAIL       # Firebase service account email
 FIREBASE_PRIVATE_KEY        # Firebase private key
 FIREBASE_DATABASE_URL       # Firebase Realtime Database URL
 DATABASE_URL               # Neon PostgreSQL connection string
-OPENAI_API_KEY             # OpenAI API key (optional, for matching)
+OPENAI_API_KEY             # OpenAI API key; required for CV match scores, optional for other matching
 GMAIL_USER                 # Gmail account address used to send email
 GMAIL_APP_PASSWORD         # 16-character Google app password (not the Gmail login password)
 GMAIL_FROM_EMAIL           # Optional From address; defaults to GMAIL_USER

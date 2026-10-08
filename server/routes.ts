@@ -74,7 +74,8 @@ import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 import { fortaledetails } from "./decision.ts";
 import multer from "multer";
-import { calculateCvProjectMatchScore, parseCv } from "./cv-parser";
+import { CV_MATCH_VERSION, calculateCvProjectMatchScore } from "./cv-match-score";
+import { parseCv } from "./cv-parser";
 
 const applicationCvUpload = multer({
   storage: multer.memoryStorage(),
@@ -120,6 +121,20 @@ function decodeCvPayload(uploadedCv: any): Express.Multer.File {
   }
 
   return { originalname: uploadedCv.fileName, buffer } as Express.Multer.File;
+}
+
+function readCvJson(value: unknown): Record<string, unknown> | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw Object.assign(new Error("Extracted CV data must be a JSON object."), { statusCode: 400 });
+  }
+
+  const cvData = value as Record<string, unknown>;
+  const serialized = JSON.stringify(cvData);
+  if (typeof serialized !== "string" || Buffer.byteLength(serialized, "utf8") > 100_000) {
+    throw Object.assign(new Error("Extracted CV data is too large."), { statusCode: 413 });
+  }
+  return cvData;
 }
 
 // Helper to extract user's name (schema uses 'name', not 'fullName')
@@ -199,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const applications = await storage.getApplicationsForProject(req.params.id);
       const applicationsWithScores = await Promise.all(applications.map(async (application: any) => {
         const storedScore = Number(application.cvMatchScore);
-        if (Number.isFinite(storedScore) && storedScore >= 0 && storedScore <= 10) {
+        if (application.cvMatchVersion === CV_MATCH_VERSION && Number.isFinite(storedScore) && storedScore >= 0 && storedScore <= 10) {
           if (typeof application.cvMatchScore !== "number") {
             try {
               await storage.updateApplication(application.id, { cvMatchScore: storedScore } as any);
@@ -218,15 +233,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cvData = undefined;
           }
         }
-        if (!cvData || typeof cvData !== "object") return application;
-
-        const cvMatchScore = calculateCvProjectMatchScore(project, cvData);
-        try {
-          await storage.updateApplication(application.id, { cvMatchScore } as any);
-        } catch (error) {
-          console.error("Unable to save CV match score:", error);
+        if (!cvData || typeof cvData !== "object") {
+          return { ...application, cvMatchScore: null };
         }
-        return { ...application, cvMatchScore };
+
+        const cvMatchScore = await calculateCvProjectMatchScore(project, cvData);
+        await storage.updateApplication(application.id, { cvMatchScore, cvMatchVersion: CV_MATCH_VERSION } as any);
+        return { ...application, cvMatchScore, cvMatchVersion: CV_MATCH_VERSION };
       }));
       res.json(applicationsWithScores);
     } catch (error: any) {
@@ -244,8 +257,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'You cannot apply to your own project' });
       }
 
-      const cvData = await parseCv(decodeCvPayload(req.body?.cvFile));
-      const cvMatchScore = calculateCvProjectMatchScore(project, cvData);
+      const cvData = readCvJson(req.body?.cvData) || await parseCv(decodeCvPayload(req.body?.cvFile));
+      const cvMatchScore = await calculateCvProjectMatchScore(project, cvData);
       res.json({ cvMatchScore, cvData });
     } catch (error: any) {
       const status = error.statusCode || 500;
@@ -880,14 +893,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!cvFile && uploadedCv) {
         cvFile = decodeCvPayload(uploadedCv);
       }
-      const cvData = cvFile ? await parseCv(cvFile) : undefined;
-      const cvMatchScore = cvData ? calculateCvProjectMatchScore(project, cvData) : undefined;
+      const cvData = readCvJson(req.body?.cvData) || (cvFile ? await parseCv(cvFile) : undefined);
+      const cvMatchScore = cvData ? await calculateCvProjectMatchScore(project, cvData) : undefined;
       
       // Create the application
       const application = await storage.createApplication({
         ...validatedData,
         ...(cvData ? { cvData } : {}),
         ...(cvMatchScore !== undefined ? { cvMatchScore } : {}),
+        ...(cvMatchScore !== undefined ? { cvMatchVersion: CV_MATCH_VERSION } : {}),
       });
       
       // Create notification for project owner

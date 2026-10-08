@@ -1,0 +1,378 @@
+/**
+ * Email Service Module
+ * 
+ * Handles email notifications using Gmail through Nodemailer.
+ * Provides templates for various email types (project sharing, notifications, etc.)
+ * Includes admin copy functionality to forward all emails to admin for monitoring.
+ * 
+ * Main Classes & Functions:
+ * - EmailService: Main email service class
+ *   - sendEmail(template): Sends email to recipient and optionally admin
+ *   - createProjectShareEmail(...): Creates formatted email for project sharing
+ *   - createOpportunityEmail(...): Creates email for opportunity notifications
+ *   - Various other email template methods
+ * - EmailTemplate interface: Defines email structure (to, subject, text, html)
+ * 
+ * Features:
+ * - Sends emails to primary recipient
+ * - Automatically forwards copy to admin email for auditing
+ * - Fallback mode when Gmail credentials are not configured (logs instead of sending)
+ * - HTML and text email templates
+ * 
+ * Environment Variables Required:
+ * - GMAIL_USER: Gmail address used to send email
+ * - GMAIL_APP_PASSWORD: Gmail app password for the account
+ * - GMAIL_FROM_EMAIL: Optional display address (defaults to GMAIL_USER)
+ */
+
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
+
+if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  console.warn("GMAIL_USER or GMAIL_APP_PASSWORD not set - email notifications will be disabled");
+}
+
+export interface EmailTemplate {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+export class EmailService {
+  private fromEmail = process.env.GMAIL_FROM_EMAIL || process.env.GMAIL_USER || '';
+  private fromName = process.env.GMAIL_FROM_NAME || 'ScholarScape';
+  private adminEmail = process.env.EMAIL_ADMIN || 'hellorblend@gmail.com';
+  private mailService: Transporter | null = null;
+
+  private getMailService(): Transporter | null {
+    if (this.mailService) return this.mailService;
+
+    const user = process.env.GMAIL_USER?.trim();
+    const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
+    if (!user || !password) return null;
+
+    this.fromEmail = process.env.GMAIL_FROM_EMAIL?.trim() || user;
+    this.fromName = process.env.GMAIL_FROM_NAME?.trim() || 'ScholarScape';
+    this.mailService = nodemailer.createTransport({
+      host: process.env.GMAIL_SMTP_HOST?.trim() || 'smtp.gmail.com',
+      port: Number(process.env.GMAIL_SMTP_PORT || 587),
+      secure: process.env.GMAIL_SMTP_SECURE === 'true',
+      requireTLS: true,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+      auth: { user, pass: password },
+    });
+    return this.mailService;
+  }
+
+  private async sendWithResend(template: EmailTemplate, apiKey: string): Promise<boolean> {
+    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || this.fromEmail;
+    if (!fromEmail) return false;
+
+    const messages = [
+      {
+        from: `${this.fromName} <${fromEmail}>`,
+        to: [template.to],
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      },
+    ];
+    const isAuthenticationEmail = template.subject.toLowerCase().includes('password') ||
+      template.subject.toLowerCase().includes('email');
+    if (this.adminEmail && !isAuthenticationEmail) {
+      messages.push({
+        from: `${this.fromName} <${fromEmail}>`,
+        to: [this.adminEmail],
+        subject: `[ADMIN] ${template.subject}`,
+        text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
+        html: `<p><strong>Original recipient:</strong> ${template.to}</p>${template.html}`,
+      });
+    }
+
+    for (const message of messages) {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(`Resend rejected the email (${response.status}): ${details}`);
+      }
+    }
+
+    console.log('Email sent successfully via Resend to:', template.to);
+    return true;
+  }
+
+  async sendEmail(template: EmailTemplate): Promise<boolean> {
+    const resendApiKey = process.env.RESEND_API_KEY?.trim();
+    if (resendApiKey) {
+      try {
+        return await this.sendWithResend(template, resendApiKey);
+      } catch (error) {
+        console.error('Failed to send email via Resend:', error);
+        return false;
+      }
+    }
+
+    const mailService = this.getMailService();
+    if (!mailService) {
+      console.error('Email was not sent because Gmail credentials are not configured:', {
+        subject: template.subject,
+        recipient: template.to,
+      });
+      return false;
+    }
+
+    try {
+      await mailService.verify();
+      // Send to the recipient
+      await mailService.sendMail({
+        to: template.to,
+        from: { name: this.fromName, address: this.fromEmail },
+        envelope: { from: this.fromEmail, to: template.to },
+        headers: {
+          'Auto-Submitted': 'auto-generated',
+          'X-Auto-Response-Suppress': 'All',
+        },
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      });
+      console.log('Email sent successfully to:', template.to);
+
+      // Never forward authentication links because they grant account access.
+      const isAuthenticationEmail = template.subject.includes('password') || template.subject.includes('email');
+      if (this.adminEmail && !isAuthenticationEmail) {
+        await mailService.sendMail({
+          to: this.adminEmail,
+          from: this.fromEmail,
+          subject: `[ADMIN] ${template.subject}`,
+          text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
+          html: `
+            <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
+              <h3 style="color: #007bff; margin: 0;">Admin Notification</h3>
+              <p style="margin: 5px 0;"><strong>Original recipient:</strong> ${template.to}</p>
+              <p style="margin: 5px 0;"><strong>Activity:</strong> ${template.subject}</p>
+            </div>
+            ${template.html}
+          `,
+        });
+        console.log('Admin notification sent to:', this.adminEmail);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      console.error('Error details:', {
+        code: (error as any)?.code,
+        responseCode: (error as any)?.responseCode,
+        response: (error as any)?.response,
+        command: (error as any)?.command,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  createPasswordResetEmail(recipientEmail: string, recipientName: string, resetUrl: string): EmailTemplate {
+    const subject = 'Reset your ScholarScape password';
+    const text = `Hi ${recipientName},\n\nUse this link to reset your ScholarScape password:\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, you can ignore this email.`;
+    const html = `<p>Hi ${recipientName},</p><p>Use the link below to reset your ScholarScape password:</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>`;
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  createEmailVerificationEmail(recipientEmail: string, recipientName: string, verificationUrl: string): EmailTemplate {
+    const subject = 'Verify your ScholarScape email';
+    const text = `Hi ${recipientName},\n\nVerify your ScholarScape email address here:\n${verificationUrl}\n\nThis link expires in 24 hours.`;
+    const html = `<p>Hi ${recipientName},</p><p>Verify your ScholarScape email address by clicking below:</p><p><a href="${verificationUrl}">Verify your email</a></p><p>This link expires in 24 hours.</p>`;
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  // Project sharing email
+  createProjectShareEmail(
+    recipientEmail: string,
+    recipientName: string,
+    projectTitle: string,
+    sharedByName: string,
+    message?: string,
+    loginUrl: string = 'https://your-domain.replit.app'
+  ): EmailTemplate {
+    const subject = `${sharedByName} thinks you'd be interested in: ${projectTitle}`;
+    
+    const text = `
+Hi ${recipientName},
+
+${sharedByName} thought you might be interested in this research opportunity:
+
+"${projectTitle}"
+
+${message ? `${sharedByName} said: "${message}"` : ''}
+
+You can check it out here: ${loginUrl}
+
+This looks like it could be a great fit for your background. If you're interested, just click the link above to learn more and get in touch.
+
+Cheers,
+${sharedByName}
+    `.trim();
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .message { background: #f8f9fa; padding: 15px; border-left: 3px solid #007bff; margin: 15px 0; }
+    a { color: #007bff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <p>Hi ${recipientName},</p>
+  
+  <p>${sharedByName} thought you might be interested in this research opportunity:</p>
+  
+  <h3>"${projectTitle}"</h3>
+  
+  ${message ? `<div class="message"><strong>${sharedByName} said:</strong><br>"${message}"</div>` : ''}
+  
+  <p>You can check it out here: <a href="${loginUrl}">View Project</a></p>
+  
+  <p>This looks like it could be a great fit for your background. If you're interested, just click the link above to learn more and get in touch.</p>
+  
+  <p>Cheers,<br>${sharedByName}</p>
+</body>
+</html>
+    `.trim();
+
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  // Application status update email
+  createApplicationStatusEmail(
+    recipientEmail: string,
+    recipientName: string,
+    projectTitle: string,
+    status: string,
+    reviewNotes?: string,
+    loginUrl: string = 'https://your-domain.replit.app'
+  ): EmailTemplate {
+    const statusText = status.replace('_', ' ');
+    const subject = `Update on your application: ${projectTitle}`;
+    
+    const text = `
+Hi ${recipientName},
+
+I wanted to let you know that your application for "${projectTitle}" has been ${statusText}.
+
+${reviewNotes ? `Here's what I noted: "${reviewNotes}"` : ''}
+
+You can check your application status here: ${loginUrl}
+
+${status === 'approved' ? 'Looking forward to working with you!' : 'Thank you for your interest in this project.'}
+
+Best,
+The Project Team
+    `.trim();
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .status { padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .approved { background: #d4edda; color: #155724; }
+    .rejected, .ignored { background: #f8d7da; color: #721c24; }
+    .under_review { background: #fff3cd; color: #856404; }
+    a { color: #007bff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <p>Hi ${recipientName},</p>
+  
+  <p>I wanted to let you know that your application for "${projectTitle}" has been ${statusText}.</p>
+  
+  <div class="status ${status}">
+    ${status === 'approved' ? '🎉 Congratulations! Your application has been approved.' : 
+      status === 'rejected' || status === 'ignored' ? 'Thank you for your application. Unfortunately, we won\'t be moving forward at this time.' : 
+      '⏳ Your application is currently under review.'}
+  </div>
+  
+  ${reviewNotes ? `<p><strong>Note:</strong> "${reviewNotes}"</p>` : ''}
+  
+  <p>You can check your application status here: <a href="${loginUrl}">View Application</a></p>
+  
+  <p>${status === 'approved' ? 'Looking forward to working with you!' : 'Thank you for your interest in this project.'}</p>
+  
+  <p>Best,<br>The Project Team</p>
+</body>
+</html>
+    `.trim();
+
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  // New application received email
+  createNewApplicationEmail(
+    recipientEmail: string,
+    recipientName: string,
+    projectTitle: string,
+    applicantName: string,
+    loginUrl: string = 'https://your-domain.replit.app'
+  ): EmailTemplate {
+    const subject = `${applicantName} applied to your project: ${projectTitle}`;
+    
+    const text = `
+Hi ${recipientName},
+
+Good news! ${applicantName} just applied to your research project "${projectTitle}".
+
+You can review their application here: ${loginUrl}
+
+Take a look at their background and see if they'd be a good fit for your team.
+
+Best,
+The Platform Team
+    `.trim();
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .highlight { background: #f8f9fa; padding: 15px; border-left: 3px solid #28a745; margin: 15px 0; }
+    a { color: #007bff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <p>Hi ${recipientName},</p>
+  
+  <p>Good news! <strong>${applicantName}</strong> just applied to your research project:</p>
+  
+  <div class="highlight">
+    <strong>"${projectTitle}"</strong>
+  </div>
+  
+  <p>You can review their application here: <a href="${loginUrl}">Review Application</a></p>
+  
+  <p>Take a look at their background and see if they'd be a good fit for your team.</p>
+  
+  <p>Best,<br>The Platform Team</p>
+</body>
+</html>
+    `.trim();
+
+    return { to: recipientEmail, subject, text, html };
+  }
+}
+
+export const emailService = new EmailService();

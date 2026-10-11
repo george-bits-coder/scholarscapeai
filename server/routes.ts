@@ -74,7 +74,7 @@ import { getValue, queryValuesByChild } from "./firebase";
 import { emailService } from "./emailService";
 import { fortaledetails } from "./decision.ts";
 import multer from "multer";
-import { CV_MATCH_VERSION, calculateCvProjectMatchScore } from "./cv-match-score";
+import { CV_MATCH_VERSION, calculateCvProjectMatch } from "./cv-match-score";
 import { parseCv } from "./cv-parser";
 
 const applicationCvUpload = multer({
@@ -214,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const applications = await storage.getApplicationsForProject(req.params.id);
       const applicationsWithScores = await Promise.all(applications.map(async (application: any) => {
         const storedScore = Number(application.cvMatchScore);
-        if (application.cvMatchVersion === CV_MATCH_VERSION && Number.isFinite(storedScore) && storedScore >= 0 && storedScore <= 10) {
+        if (application.cvMatchVersion === CV_MATCH_VERSION && Number.isFinite(storedScore) && storedScore >= 0 && storedScore <= 100 && typeof application.cvMatchReason === "string" && application.cvMatchReason.trim()) {
           if (typeof application.cvMatchScore !== "number") {
             try {
               await storage.updateApplication(application.id, { cvMatchScore: storedScore } as any);
@@ -237,9 +237,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { ...application, cvMatchScore: null };
         }
 
-        const cvMatchScore = await calculateCvProjectMatchScore(project, cvData);
-        await storage.updateApplication(application.id, { cvMatchScore, cvMatchVersion: CV_MATCH_VERSION } as any);
-        return { ...application, cvMatchScore, cvMatchVersion: CV_MATCH_VERSION };
+        const cvMatch = await calculateCvProjectMatch(project, cvData);
+        await storage.updateApplication(application.id, {
+          cvMatchScore: cvMatch.score,
+          cvMatchReason: cvMatch.reason,
+          cvMatchVersion: CV_MATCH_VERSION,
+        } as any);
+        return {
+          ...application,
+          cvMatchScore: cvMatch.score,
+          cvMatchReason: cvMatch.reason,
+          cvMatchVersion: CV_MATCH_VERSION,
+        };
       }));
       res.json(applicationsWithScores);
     } catch (error: any) {
@@ -258,8 +267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cvData = readCvJson(req.body?.cvData) || await parseCv(decodeCvPayload(req.body?.cvFile));
-      const cvMatchScore = await calculateCvProjectMatchScore(project, cvData);
-      res.json({ cvMatchScore, cvData });
+      const cvMatch = await calculateCvProjectMatch(project, cvData);
+      res.json({ cvMatchScore: cvMatch.score, cvMatchReason: cvMatch.reason, cvData });
     } catch (error: any) {
       const status = error.statusCode || 500;
       res.status(status).json({ error: error.message || 'Unable to calculate CV match score' });
@@ -894,14 +903,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cvFile = decodeCvPayload(uploadedCv);
       }
       const cvData = readCvJson(req.body?.cvData) || (cvFile ? await parseCv(cvFile) : undefined);
-      const cvMatchScore = cvData ? await calculateCvProjectMatchScore(project, cvData) : undefined;
+      const cvMatch = cvData ? await calculateCvProjectMatch(project, cvData) : undefined;
       
       // Create the application
       const application = await storage.createApplication({
         ...validatedData,
         ...(cvData ? { cvData } : {}),
-        ...(cvMatchScore !== undefined ? { cvMatchScore } : {}),
-        ...(cvMatchScore !== undefined ? { cvMatchVersion: CV_MATCH_VERSION } : {}),
+        ...(cvMatch ? {
+          cvMatchScore: cvMatch.score,
+          cvMatchReason: cvMatch.reason,
+          cvMatchVersion: CV_MATCH_VERSION,
+        } : {}),
       });
       
       // Create notification for project owner

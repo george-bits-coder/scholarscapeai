@@ -52,3 +52,9 @@ if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM_EMAIL) {
     "BREVO_API_KEY or BREVO_FROM_EMAIL is missing. Transactional email delivery through Brevo is disabled.",
   );
 }
+
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.warn(
+    "Cloudinary credentials are missing. Profile picture and newsfeed image uploads will be unavailable until CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are configured.",
+  );
+}

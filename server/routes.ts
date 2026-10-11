@@ -70,10 +70,11 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { matchingService } from "./matching-service";
 import { insertProjectSchema, insertOpportunitySchema, insertApplicationSchema, insertMessageSchema, type User, type UserInterests } from "@shared/schema";
-import { getValue, queryValuesByChild } from "./firebase";
+import { getValue, queryValuesByChild, updateValue } from "./firebase";
 import { emailService } from "./emailService";
 import { fortaledetails } from "./decision.ts";
 import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import { CV_MATCH_VERSION, calculateCvProjectMatch } from "./cv-match-score";
 import { parseCv } from "./cv-parser";
 
@@ -91,6 +92,109 @@ const applicationCvUpload = multer({
     callback(null, true);
   },
 }).single("cv");
+
+const profileImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+      callback(Object.assign(new Error("Profile pictures must be JPEG, PNG, or WebP images."), { statusCode: 400 }));
+      return;
+    }
+    callback(null, true);
+  },
+}).single("profileImage");
+
+const feedImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.mimetype)) {
+      callback(Object.assign(new Error("Feed images must be JPEG, PNG, WebP, or GIF images."), { statusCode: 400 }));
+      return;
+    }
+    callback(null, true);
+  },
+}).single("image");
+
+function uploadProfileImage(req: any, res: any, next: any) {
+  profileImageUpload(req, res, (error: any) => {
+    if (!error) return next();
+    const status = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE" ? 413 : error.statusCode || 400;
+    res.status(status).json({
+      error: status === 413 ? "Profile pictures must be 5 MB or smaller." : error.message,
+    });
+  });
+}
+
+function uploadFeedImage(req: any, res: any, next: any) {
+  feedImageUpload(req, res, (error: any) => {
+    if (!error) return next();
+    const status = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE" ? 413 : error.statusCode || 400;
+    res.status(status).json({
+      error: status === 413 ? "Feed images must be 10 MB or smaller." : error.message,
+    });
+  });
+}
+
+function uploadProfileImageToCloudinary(buffer: Buffer, userId: string): Promise<{ secure_url: string; public_id: string }> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      {
+        folder: "scholarscape/profile-images",
+        public_id: userId,
+        overwrite: true,
+        invalidate: true,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!result?.secure_url || !result.public_id) {
+          reject(new Error("Cloudinary did not return a profile image URL."));
+          return;
+        }
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      },
+    ).end(buffer);
+  });
+}
+
+function uploadFeedImageToCloudinary(buffer: Buffer, userId: string): Promise<{ secure_url: string; public_id: string }> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      {
+        folder: "scholarscape/feed-images",
+        public_id: `${userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!result?.secure_url || !result.public_id) {
+          reject(new Error("Cloudinary did not return a feed image URL."));
+          return;
+        }
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      },
+    ).end(buffer);
+  });
+}
+
+function configureCloudinary(): boolean {
+  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) return false;
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET,
+  });
+  return true;
+}
 
 function uploadApplicationCv(req: any, res: any, next: any) {
   applicationCvUpload(req, res, (error: any) => {
@@ -1622,6 +1726,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user CV endpoint
+  app.post("/api/user/profile-image", (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(503).json({ error: "Profile image uploads are not configured. Contact the site administrator." });
+    }
+
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    next();
+  }, uploadProfileImage, async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Choose a profile picture to upload." });
+    }
+
+    try {
+      const uploaded = await uploadProfileImageToCloudinary(req.file.buffer, req.user!.id);
+      const updatedAt = new Date().toISOString();
+      await updateValue(`users/${req.user!.id}`, {
+        profileImageUrl: uploaded.secure_url,
+        profileImagePublicId: uploaded.public_id,
+        updatedAt,
+      });
+      res.json({
+        profileImageUrl: uploaded.secure_url,
+        profileImagePublicId: uploaded.public_id,
+      });
+    } catch (error) {
+      console.error("Error uploading profile image:", error);
+      res.status(502).json({ error: "Unable to upload profile picture. Please try again." });
+    }
+  });
+
+  // Update user CV endpoint
   app.put("/api/users/cv", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Authentication required" });
@@ -2060,6 +2202,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error fetching feed:', error);
       res.status(500).json({ error: "Failed to fetch feed" });
+    }
+  });
+
+  app.post("/api/feed/images", (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    if (!configureCloudinary()) {
+      return res.status(503).json({ error: "Image uploads are not configured. Contact the site administrator." });
+    }
+    next();
+  }, uploadFeedImage, async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Choose an image to upload." });
+    }
+
+    try {
+      const uploaded = await uploadFeedImageToCloudinary(req.file.buffer, req.user!.id);
+      res.json({ imageUrl: uploaded.secure_url });
+    } catch (error) {
+      console.error("Error uploading feed image:", error);
+      res.status(502).json({ error: "Unable to upload feed image. Please try again." });
     }
   });
 

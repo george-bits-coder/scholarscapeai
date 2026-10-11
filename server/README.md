@@ -156,6 +156,7 @@ Firebase Cloud Functions entry point:
 - **firebase-admin** - Firebase SDK
 - **drizzle-orm** - ORM for database
 - **openai** - AI embeddings, project matching, and CV fit scoring
+- **cloudinary** - Profile picture and newsfeed image uploads and hosting
 - **Brevo** - Transactional email delivery through the Brevo API
 - **vite** - Development server and build tool
 
@@ -172,9 +173,14 @@ BREVO_API_KEY              # Brevo API key for transactional email
 BREVO_FROM_EMAIL           # Verified sender email address configured in Brevo
 BREVO_FROM_NAME            # Optional sender name; defaults to ScholarScape
 EMAIL_ADMIN                # Optional admin copy recipient
+CLOUDINARY_CLOUD_NAME      # Cloudinary cloud name for profile picture uploads
+CLOUDINARY_API_KEY         # Cloudinary API key
+CLOUDINARY_API_SECRET      # Cloudinary API secret
 SESSION_SECRET             # Session encryption secret
 PORT                       # Server port (default: 8080)
 ```
+
+Newsfeed images are uploaded through the authenticated API to the `scholarscape/feed-images` Cloudinary folder. Supported formats are JPEG, PNG, WebP, and GIF, up to 10 MB. The resulting secure URL is saved with the feed post in Firebase.
 
 ## 📝 Notes
 

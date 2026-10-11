@@ -1755,6 +1755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({
         profileImageUrl: uploaded.secure_url,
+        imageUrl: uploaded.secure_url,
         profileImagePublicId: uploaded.public_id,
       });
     } catch (error) {

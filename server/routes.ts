@@ -1142,36 +1142,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedApplication = await storage.updateApplicationStatus(req.params.id, status, reviewNotes);
       
       // Create notification and send email for applicant
-      await storage.createNotification({
-        userId: application.userId,
-        type: "application",
-        title: "Application Status Update",
-        content: `Your application for "${project.title}" has been ${status.replace('_', ' ')}`,
-        payload: { applicationId: application.id, projectId: project.id },
-      });
+      if (status !== application.status) {
+        await storage.createNotification({
+          userId: application.userId,
+          type: "application",
+          title: status === "approved" ? "You've been selected!" : "Application Status Update",
+          content: status === "approved"
+            ? `Your application for "${project.title}" was approved.`
+            : `Your application for "${project.title}" has been ${status.replace('_', ' ')}`,
+          payload: { applicationId: application.id, projectId: project.id },
+        });
+      }
 
-      // Send email notification to applicant (if enabled)
-      try {
-        const applicant = await storage.getUser(application.userId);
-        if (applicant?.email) {
-          const loginUrl = process.env.REPLIT_DOMAINS 
-            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-            : 'http://localhost:5000';
-          
-          const emailTemplate = emailService.createApplicationStatusEmail(
-            applicant.email,
-            applicant.name,
-            project.title,
-            status,
-            reviewNotes,
-            loginUrl
-          );
-          await emailService.sendEmail(emailTemplate);
-          console.log(`Email sent to ${applicant.email} for application status: ${status}`);
+      if (status !== application.status) {
+        // Send email notification to applicant (if enabled)
+        try {
+          const applicant = await storage.getUser(application.userId);
+          if (applicant?.email) {
+            const loginUrl = process.env.REPLIT_DOMAINS
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+              : 'http://localhost:5000';
+
+            const emailTemplate = emailService.createApplicationStatusEmail(
+              applicant.email,
+              applicant.name,
+              project.title,
+              status,
+              reviewNotes,
+              loginUrl
+            );
+            await emailService.sendEmail(emailTemplate);
+            console.log(`Email sent to ${applicant.email} for application status: ${status}`);
+          }
+        } catch (emailError: any) {
+          console.error('Failed to send application status email:', emailError);
+          // Don't fail the whole request if email fails
         }
-      } catch (emailError: any) {
-        console.error('Failed to send application status email:', emailError);
-        // Don't fail the whole request if email fails
       }
       
       res.json(updatedApplication);
@@ -2283,6 +2289,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error updating feed post:', error);
       res.status(500).json({ error: "Failed to update feed post" });
+    }
+  });
+
+  app.delete("/api/feed/posts/:postId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const post = await storage.getFeedPost(req.params.postId);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+      if (post.authorId !== req.user!.id) {
+        return res.status(403).json({ error: "You can only delete your own posts" });
+      }
+
+      await storage.deleteFeedPost(req.params.postId);
+      res.json({ success: true, postId: req.params.postId });
+    } catch (error: any) {
+      console.error("Error deleting feed post:", error);
+      res.status(500).json({ error: "Failed to delete feed post" });
     }
   });
 

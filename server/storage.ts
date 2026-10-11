@@ -125,6 +125,7 @@ export interface IStorage {
   getFeed(userId: string): Promise<any[]>;
   createFeedPost(post: any): Promise<any>;
   updateFeedPost(postId: string, updates: any): Promise<any>;
+  deleteFeedPost(postId: string): Promise<void>;
   toggleFeedLike(postId: string, userId: string): Promise<any>;
   getFeedComments(postId: string): Promise<any[]>;
   getFeedPost(postId: string): Promise<any | undefined>;

@@ -411,6 +411,19 @@ export class FirebaseStorage implements IStorage {
     return this.getFeedPost(postId);
   }
 
+  async deleteFeedPost(postId: string): Promise<void> {
+    const existing = await this.getItem<any>("feedPosts", postId);
+    if (!existing) throw new Error("Feed post not found");
+
+    const comments = await this.listItems<any>("feedComments");
+    await Promise.all(
+      comments
+        .filter((comment) => comment.postId === postId)
+        .map((comment) => this.removeItem("feedComments", comment.id)),
+    );
+    await this.removeItem("feedPosts", postId);
+  }
+
   async getFeedComments(postId: string): Promise<any[]> {
     const comments = await this.listItems<any>("feedComments");
     const filtered = comments

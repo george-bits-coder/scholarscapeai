@@ -1,7 +1,7 @@
 /**
  * Email Service Module
  * 
- * Handles email notifications using Gmail through Nodemailer.
+ * Handles transactional email delivery through Brevo.
  * Provides templates for various email types (project sharing, notifications, etc.)
  * Includes admin copy functionality to forward all emails to admin for monitoring.
  * 
@@ -16,20 +16,17 @@
  * Features:
  * - Sends emails to primary recipient
  * - Automatically forwards copy to admin email for auditing
- * - Fallback mode when Gmail credentials are not configured (logs instead of sending)
+ * - Uses Brevo exclusively; there is no provider fallback
  * - HTML and text email templates
  * 
  * Environment Variables Required:
- * - GMAIL_USER: Gmail address used to send email
- * - GMAIL_APP_PASSWORD: Gmail app password for the account
- * - GMAIL_FROM_EMAIL: Optional display address (defaults to GMAIL_USER)
+ * - BREVO_API_KEY: Brevo API key
+ * - BREVO_FROM_EMAIL: Verified sender email address in Brevo
+ * - BREVO_FROM_NAME: Optional sender name (defaults to ScholarScape)
  */
 
-import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
-
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-  console.warn("GMAIL_USER or GMAIL_APP_PASSWORD not set - email notifications will be disabled");
+if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM_EMAIL) {
+  console.warn("BREVO_API_KEY or BREVO_FROM_EMAIL not set - email delivery is disabled");
 }
 
 export interface EmailTemplate {
@@ -40,91 +37,57 @@ export interface EmailTemplate {
 }
 
 export class EmailService {
-  private fromEmail = process.env.GMAIL_FROM_EMAIL || process.env.GMAIL_USER || '';
-  private fromName = process.env.GMAIL_FROM_NAME || 'ScholarScape';
+  private fromEmail = process.env.BREVO_FROM_EMAIL?.trim() || '';
+  private fromName = process.env.BREVO_FROM_NAME?.trim() || 'ScholarScape';
   private adminEmail = process.env.EMAIL_ADMIN || 'hellorblend@gmail.com';
-  private mailService: Transporter | null = null;
 
-  private getMailService(): Transporter | null {
-    if (this.mailService) return this.mailService;
-
-    const user = process.env.GMAIL_USER?.trim();
-    const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
-    if (!user || !password) return null;
-
-    this.fromEmail = process.env.GMAIL_FROM_EMAIL?.trim() || user;
-    this.fromName = process.env.GMAIL_FROM_NAME?.trim() || 'ScholarScape';
-    this.mailService = nodemailer.createTransport({
-      host: process.env.GMAIL_SMTP_HOST?.trim() || 'smtp.gmail.com',
-      port: Number(process.env.GMAIL_SMTP_PORT || 587),
-      secure: process.env.GMAIL_SMTP_SECURE === 'true',
-      requireTLS: true,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 30000,
-      auth: { user, pass: password },
-    });
-    return this.mailService;
-  }
-
-  private async sendWithResend(template: EmailTemplate, apiKey: string): Promise<boolean> {
-    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || this.fromEmail;
-    if (!fromEmail) return false;
+  private async sendWithBrevo(template: EmailTemplate, apiKey: string): Promise<boolean> {
+    if (!this.fromEmail) return false;
 
     const messages = [
       {
-        from: `${this.fromName} <${fromEmail}>`,
-        to: [template.to],
+        sender: { name: this.fromName, email: this.fromEmail },
+        to: [{ email: template.to }],
         subject: template.subject,
-        text: template.text,
-        html: template.html,
+        textContent: template.text,
+        htmlContent: template.html,
       },
     ];
-    const isAuthenticationEmail = template.subject.toLowerCase().includes('password') ||
-      template.subject.toLowerCase().includes('email');
+    const normalizedSubject = template.subject.toLowerCase();
+    const isAuthenticationEmail = normalizedSubject.includes('password') || normalizedSubject.includes('email');
     if (this.adminEmail && !isAuthenticationEmail) {
       messages.push({
-        from: `${this.fromName} <${fromEmail}>`,
-        to: [this.adminEmail],
+        sender: { name: this.fromName, email: this.fromEmail },
+        to: [{ email: this.adminEmail }],
         subject: `[ADMIN] ${template.subject}`,
-        text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
-        html: `<p><strong>Original recipient:</strong> ${template.to}</p>${template.html}`,
+        textContent: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
+        htmlContent: `<p><strong>Original recipient:</strong> ${template.to}</p>${template.html}`,
       });
     }
 
     for (const message of messages) {
-      const response = await fetch('https://api.resend.com/emails', {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'api-key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(message),
       });
       if (!response.ok) {
         const details = await response.text();
-        throw new Error(`Resend rejected the email (${response.status}): ${details}`);
+        throw new Error(`Brevo rejected the email (${response.status}): ${details}`);
       }
     }
 
-    console.log('Email sent successfully via Resend to:', template.to);
+    console.log('Email sent successfully via Brevo to:', template.to);
     return true;
   }
 
   async sendEmail(template: EmailTemplate): Promise<boolean> {
-    const resendApiKey = process.env.RESEND_API_KEY?.trim();
-    if (resendApiKey) {
-      try {
-        return await this.sendWithResend(template, resendApiKey);
-      } catch (error) {
-        console.error('Failed to send email via Resend:', error);
-        return false;
-      }
-    }
-
-    const mailService = this.getMailService();
-    if (!mailService) {
-      console.error('Email was not sent because Gmail credentials are not configured:', {
+    const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+    if (!brevoApiKey || !this.fromEmail) {
+      console.error('Email was not sent because Brevo credentials are not configured:', {
         subject: template.subject,
         recipient: template.to,
       });
@@ -132,52 +95,9 @@ export class EmailService {
     }
 
     try {
-      await mailService.verify();
-      // Send to the recipient
-      await mailService.sendMail({
-        to: template.to,
-        from: { name: this.fromName, address: this.fromEmail },
-        envelope: { from: this.fromEmail, to: template.to },
-        headers: {
-          'Auto-Submitted': 'auto-generated',
-          'X-Auto-Response-Suppress': 'All',
-        },
-        subject: template.subject,
-        text: template.text,
-        html: template.html,
-      });
-      console.log('Email sent successfully to:', template.to);
-
-      // Never forward authentication links because they grant account access.
-      const isAuthenticationEmail = template.subject.includes('password') || template.subject.includes('email');
-      if (this.adminEmail && !isAuthenticationEmail) {
-        await mailService.sendMail({
-          to: this.adminEmail,
-          from: this.fromEmail,
-          subject: `[ADMIN] ${template.subject}`,
-          text: `Admin notification for ResearchCollab activity:\n\nOriginal recipient: ${template.to}\n\n${template.text}`,
-          html: `
-            <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
-              <h3 style="color: #007bff; margin: 0;">Admin Notification</h3>
-              <p style="margin: 5px 0;"><strong>Original recipient:</strong> ${template.to}</p>
-              <p style="margin: 5px 0;"><strong>Activity:</strong> ${template.subject}</p>
-            </div>
-            ${template.html}
-          `,
-        });
-        console.log('Admin notification sent to:', this.adminEmail);
-      }
-      
-      return true;
+      return await this.sendWithBrevo(template, brevoApiKey);
     } catch (error) {
-      console.error('Failed to send email:', error);
-      console.error('Error details:', {
-        code: (error as any)?.code,
-        responseCode: (error as any)?.responseCode,
-        response: (error as any)?.response,
-        command: (error as any)?.command,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      console.error('Failed to send email via Brevo:', error);
       return false;
     }
   }

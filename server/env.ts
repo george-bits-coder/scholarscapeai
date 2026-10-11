@@ -47,8 +47,8 @@ if (missing.length > 0) {
   );
 }
 
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM_EMAIL) {
   console.warn(
-    "GMAIL_USER or GMAIL_APP_PASSWORD is missing. Gmail email delivery is disabled; configure RESEND_API_KEY for HTTPS email delivery.",
+    "BREVO_API_KEY or BREVO_FROM_EMAIL is missing. Transactional email delivery through Brevo is disabled.",
   );
 }

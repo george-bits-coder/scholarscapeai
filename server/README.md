@@ -156,7 +156,7 @@ Firebase Cloud Functions entry point:
 - **firebase-admin** - Firebase SDK
 - **drizzle-orm** - ORM for database
 - **openai** - AI embeddings, project matching, and CV fit scoring
-- **nodemailer** - Gmail email transport
+- **Brevo** - Transactional email delivery through the Brevo API
 - **vite** - Development server and build tool
 
 ## 🚀 Environment Variables Required
@@ -168,16 +168,10 @@ FIREBASE_PRIVATE_KEY        # Firebase private key
 FIREBASE_DATABASE_URL       # Firebase Realtime Database URL
 DATABASE_URL               # Neon PostgreSQL connection string
 OPENAI_API_KEY             # OpenAI API key; required for CV match scores, optional for other matching
-GMAIL_USER                 # Gmail account address used to send email
-GMAIL_APP_PASSWORD         # 16-character Google app password (not the Gmail login password)
-GMAIL_FROM_EMAIL           # Optional From address; defaults to GMAIL_USER
-GMAIL_FROM_NAME            # Optional sender name; defaults to ScholarScape
-GMAIL_SMTP_HOST            # Optional SMTP host; defaults to smtp.gmail.com
-GMAIL_SMTP_PORT            # Optional SMTP port; defaults to 587
-GMAIL_SMTP_SECURE          # Optional true for port 465; leave false for port 587
+BREVO_API_KEY              # Brevo API key for transactional email
+BREVO_FROM_EMAIL           # Verified sender email address configured in Brevo
+BREVO_FROM_NAME            # Optional sender name; defaults to ScholarScape
 EMAIL_ADMIN                # Optional admin copy recipient
-RESEND_API_KEY             # Recommended in hosted environments; sends email over HTTPS
-RESEND_FROM_EMAIL         # Verified Resend sender, for example noreply@your-domain.com
 SESSION_SECRET             # Session encryption secret
 PORT                       # Server port (default: 8080)
 ```

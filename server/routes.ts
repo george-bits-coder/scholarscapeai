@@ -410,7 +410,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resultcheck = await fortaledetails(discussion);
       console.log("AI decision response:", JSON.stringify(resultcheck, null, 2));
       if (resultcheck.validProject !== "yes") {
-        return res.status(400).json({ error: "Project didn't pass AI validation" });
+        const reason = resultcheck.validationReason || "The project details did not meet validation requirements.";
+        return res.status(400).json({
+          error: `Project didn't pass AI validation: ${reason}`,
+          reason,
+        });
       }
       const project = await storage.createProject(projectData as any);
       try {

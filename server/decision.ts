@@ -5,6 +5,7 @@ interface DecisionDetails {
   title: string;
   description: string;
   validProject: "yes" | "no";
+  validationReason: string;
   requiredSkills?: string[];
   compensation?: number | null;
   timeline?: string;
@@ -18,6 +19,7 @@ interface FallbackDetails {
   title: "";
   description: "";
   validProject: "no";
+  validationReason: string;
   requiredSkills: string[];
   compensation: null;
   timeline: "";
@@ -35,6 +37,7 @@ const fallbackDetails: FallbackDetails = {
   title: "",
   description: "",
   validProject: "no",
+  validationReason: "AI validation could not be completed. Please try again.",
   requiredSkills: [],
   compensation: null,
   timeline: "",
@@ -44,22 +47,20 @@ const fallbackDetails: FallbackDetails = {
   flyerUrl: "",
 };
 
-function looksLikeValidProject(details: Pick<DecisionDetails, "title" | "description">): boolean {
+function getProjectValidationReason(
+  details: Pick<DecisionDetails, "title" | "description">,
+): string | null {
   const title = details.title.trim();
   const description = details.description.trim();
   const titleWords = title.split(/\s+/).filter(Boolean);
   const titleHasLetters = /[a-z]/i.test(title);
   const titleHasVowel = /[aeiou]/i.test(title);
-  const titleHasRepeatedCharacter = /(.)\1/i.test(title);
 
-  return (
-    title.length >= 4 &&
-    titleHasLetters &&
-    titleHasVowel &&
-    !titleHasRepeatedCharacter &&
-    (titleWords.length >= 2 || title.length >= 6) &&
-    description.length >= 20
-  );
+  if (title.length < 4) return "The project title is too short.";
+  if (!titleHasLetters || !titleHasVowel) return "The project title does not appear to be meaningful text.";
+  if (titleWords.length < 2 && title.length < 6) return "The project title needs at least two words or six characters.";
+  if (description.length < 20) return "The project description is too short to explain the research work.";
+  return null;
 }
 
 export async function fortaledetails(
@@ -72,7 +73,7 @@ export async function fortaledetails(
         {
           role: "system",
           content:
-            "You are an assistant that extracts research project details from discussions.",
+            "You extract research project details and validate that the discussion describes a genuine research project. If validProject is no, explain the specific reason in validationReason. If validProject is yes, set validationReason to an empty string.",
         },
         {
           role: "user",
@@ -102,6 +103,10 @@ export async function fortaledetails(
                   enum: ["yes", "no"],
                   description:
                     "Whether the extracted title and description look like a real research project.",
+                },
+                validationReason: {
+                  type: "string",
+                  description: "If validProject is no, explain the specific reason it is not a valid research project; otherwise use an empty string.",
                 },
                 requiredSkills: {
                   type: "array",
@@ -134,7 +139,7 @@ export async function fortaledetails(
                   description: "The project flyer URL, if provided.",
                 },
               },
-              required: ["title", "description", "validProject"],
+              required: ["title", "description", "validProject", "validationReason"],
               additionalProperties: false,
             },
           },
@@ -152,9 +157,14 @@ export async function fortaledetails(
 
     if (toolCall?.type === "function" && toolCall.function.name === "printdetails") {
       const details = JSON.parse(toolCall.function.arguments) as DecisionDetails;
+      const localValidationReason = getProjectValidationReason(details);
+      const validProject = details.validProject === "yes" && !localValidationReason;
       return {
         ...details,
-        validProject: looksLikeValidProject(details) ? "yes" : "no",
+        validProject: validProject ? "yes" : "no",
+        validationReason: validProject
+          ? ""
+          : localValidationReason || details.validationReason?.trim() || "The AI validator determined this does not appear to be a valid research project.",
       };
     }
 

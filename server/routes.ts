@@ -350,7 +350,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get project owners for each project
       const projectsWithOwners = await Promise.all(
         projects.map(async (project) => {
-          const owner = await storage.getUser(project.ownerId);
+          const ownerRecord = await storage.getUser(project.ownerId);
+          const owner = ownerRecord
+            ? {
+                id: ownerRecord.id,
+                name: ownerRecord.name,
+                fullName: ownerRecord.fullName,
+                username: ownerRecord.username,
+                role: ownerRecord.role,
+                affiliation: ownerRecord.affiliation,
+                profileImageUrl: ownerRecord.profileImageUrl,
+              }
+            : undefined;
           return { ...project, owner };
         })
       );
@@ -368,7 +379,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Project not found" });
       }
       
-      const owner = await storage.getUser(project.ownerId);
+      const ownerRecord = await storage.getUser(project.ownerId);
+      const owner = ownerRecord
+        ? {
+            id: ownerRecord.id,
+            name: ownerRecord.name,
+            fullName: ownerRecord.fullName,
+            username: ownerRecord.username,
+            role: ownerRecord.role,
+            affiliation: ownerRecord.affiliation,
+            profileImageUrl: ownerRecord.profileImageUrl,
+          }
+        : undefined;
 
       // Only include applications when the requester is the project owner
       let applications;

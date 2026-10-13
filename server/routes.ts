@@ -529,7 +529,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (activityError: any) {
         console.error("Failed to save project activity:", activityError);
       }
-      res.status(201).json(project);
+      const ownerRecord = await storage.getUser(project.ownerId);
+      const owner = ownerRecord
+        ? {
+            id: ownerRecord.id,
+            name: ownerRecord.name,
+            fullName: ownerRecord.fullName,
+            username: ownerRecord.username,
+            role: ownerRecord.role,
+            affiliation: ownerRecord.affiliation,
+            profileImageUrl: ownerRecord.profileImageUrl,
+          }
+        : undefined;
+      res.status(201).json({ ...project, owner });
     } catch (error: any) {
       console.error("Error creating project:", error);
       res.status(400).json({ error: error?.message || "Invalid project data" });

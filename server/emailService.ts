@@ -36,6 +36,19 @@ export interface EmailTemplate {
   html: string;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character];
+  });
+}
+
 export class EmailService {
   private fromEmail = process.env.BREVO_FROM_EMAIL?.trim() || '';
   private fromName = process.env.BREVO_FROM_NAME?.trim() || 'ScholarScape';
@@ -291,6 +304,48 @@ The Platform Team
 </html>
     `.trim();
 
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  createProjectMessageEmail(
+    recipientEmail: string,
+    recipientName: string,
+    senderName: string,
+    projectTitle: string,
+    message: string,
+    conversationUrl: string,
+  ): EmailTemplate {
+    const subject = `${senderName} sent you a message about "${projectTitle}"`;
+    const safeRecipientName = escapeHtml(recipientName);
+    const safeSenderName = escapeHtml(senderName);
+    const safeProjectTitle = escapeHtml(projectTitle);
+    const safeMessage = escapeHtml(message);
+    const safeConversationUrl = escapeHtml(conversationUrl);
+    const text = `Hi ${recipientName},\n\n${senderName}, the researcher who posted "${projectTitle}", sent you a message:\n\n${message}\n\nReply in ScholarScape: ${conversationUrl}`;
+    const html = `<p>Hi ${safeRecipientName},</p><p><strong>${safeSenderName}</strong>, the researcher who posted <strong>${safeProjectTitle}</strong>, sent you a message:</p><blockquote style="margin:16px 0;padding:12px 16px;background:#f8fafc;border-left:3px solid #0d9488;white-space:pre-wrap">${safeMessage}</blockquote><p><a href="${safeConversationUrl}">Open the conversation in ScholarScape</a></p>`;
+    return { to: recipientEmail, subject, text, html };
+  }
+
+  createProjectConnectionRequestEmail(
+    recipientEmail: string,
+    recipientName: string,
+    senderName: string,
+    projectTitle: string,
+    requestMessage: string,
+    connectionsUrl: string,
+  ): EmailTemplate {
+    const subject = `${senderName} wants to connect about "${projectTitle}"`;
+    const safeRecipientName = escapeHtml(recipientName);
+    const safeSenderName = escapeHtml(senderName);
+    const safeProjectTitle = escapeHtml(projectTitle);
+    const safeRequestMessage = escapeHtml(requestMessage);
+    const safeConnectionsUrl = escapeHtml(connectionsUrl);
+    const messageText = requestMessage ? `\n\nMessage: ${requestMessage}` : '';
+    const messageHtml = requestMessage
+      ? `<blockquote style="margin:16px 0;padding:12px 16px;background:#f8fafc;border-left:3px solid #0d9488;white-space:pre-wrap">${safeRequestMessage}</blockquote>`
+      : '';
+    const text = `Hi ${recipientName},\n\n${senderName}, the researcher who posted "${projectTitle}", sent you a connection request.${messageText}\n\nReview the request in ScholarScape: ${connectionsUrl}`;
+    const html = `<p>Hi ${safeRecipientName},</p><p><strong>${safeSenderName}</strong>, the researcher who posted <strong>${safeProjectTitle}</strong>, sent you a connection request.</p>${messageHtml}<p><a href="${safeConnectionsUrl}">Review the request in ScholarScape</a></p>`;
     return { to: recipientEmail, subject, text, html };
   }
 }

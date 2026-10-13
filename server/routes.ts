@@ -137,15 +137,16 @@ function uploadFeedImage(req: any, res: any, next: any) {
   });
 }
 
-async function isApprovedProjectTeammate(userId: string, otherUserId: string): Promise<boolean> {
-  const applications = await storage.getApplications({ userId });
-  const approvedApplications = applications.filter(
-    (application) => application.status === "approved",
-  );
-  const projects = await Promise.all(
-    approvedApplications.map((application) => storage.getProject(application.projectId)),
-  );
-  return projects.some((project) => project?.ownerId === otherUserId);
+async function getProjectForApplicantContact(
+  applicantId: string,
+  projectOwnerId: string,
+) {
+  const applications = await storage.getApplications({ userId: applicantId });
+  for (const application of applications) {
+    const project = await storage.getProject(application.projectId);
+    if (project?.ownerId === projectOwnerId) return project;
+  }
+  return undefined;
 }
 
 async function canMessageUsers(userId: string, otherUserId: string): Promise<boolean> {
@@ -158,11 +159,64 @@ async function canMessageUsers(userId: string, otherUserId: string): Promise<boo
   });
   if (isConnected) return true;
 
-  const [userIsApprovedTeammate, otherIsApprovedTeammate] = await Promise.all([
-    isApprovedProjectTeammate(userId, otherUserId),
-    isApprovedProjectTeammate(otherUserId, userId),
+  const [userAppliedToOther, otherAppliedToUser] = await Promise.all([
+    getProjectForApplicantContact(userId, otherUserId),
+    getProjectForApplicantContact(otherUserId, userId),
   ]);
-  return userIsApprovedTeammate || otherIsApprovedTeammate;
+  return Boolean(userAppliedToOther || otherAppliedToUser);
+}
+
+function getAppBaseUrl(req: any): string {
+  const configuredUrl = process.env.APP_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
+  const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  if (replitDomain) return `https://${replitDomain}`;
+  return `${req.protocol}://${req.get("host")}`.replace(/\/+$/, "");
+}
+
+async function emailApplicantAboutResearcherContact(
+  req: any,
+  applicantId: string,
+  contactType: "message" | "connection",
+  content: string,
+): Promise<void> {
+  try {
+    const project = await getProjectForApplicantContact(applicantId, req.user!.id);
+    if (!project) return;
+
+    const [applicant, researcher] = await Promise.all([
+      storage.getUser(applicantId),
+      storage.getUser(req.user!.id),
+    ]);
+    if (!applicant?.email) return;
+
+    const baseUrl = getAppBaseUrl(req);
+    const researcherName = getDisplayName(researcher || req.user!);
+    const applicantName = getDisplayName(applicant);
+    const template = contactType === "message"
+      ? emailService.createProjectMessageEmail(
+        applicant.email,
+        applicantName,
+        researcherName,
+        project.title,
+        content,
+        `${baseUrl}/messages?userId=${encodeURIComponent(req.user!.id)}`,
+      )
+      : emailService.createProjectConnectionRequestEmail(
+        applicant.email,
+        applicantName,
+        researcherName,
+        project.title,
+        content,
+        `${baseUrl}/connections`,
+      );
+    const sent = await emailService.sendEmail(template);
+    if (!sent) {
+      console.error(`Unable to send project ${contactType} email to applicant ${applicantId}`);
+    }
+  } catch (error) {
+    console.error(`Failed to send project ${contactType} email to applicant ${applicantId}:`, error);
+  }
 }
 
 function uploadProfileImageToCloudinary(buffer: Buffer, userId: string): Promise<{ secure_url: string; public_id: string }> {
@@ -1038,18 +1092,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!cvFile && uploadedCv) {
         cvFile = decodeCvPayload(uploadedCv);
       }
-      const cvData = readCvJson(req.body?.cvData) || (cvFile ? await parseCv(cvFile) : undefined);
-      const cvMatch = cvData ? await calculateCvProjectMatch(project, cvData) : undefined;
+      if (!cvFile) {
+        return res.status(400).json({ error: "Please upload your CV before applying." });
+      }
+      const cvData = readCvJson(req.body?.cvData) || await parseCv(cvFile);
+      const cvMatch = await calculateCvProjectMatch(project, cvData);
       
       // Create the application
       const application = await storage.createApplication({
         ...validatedData,
-        ...(cvData ? { cvData } : {}),
-        ...(cvMatch ? {
-          cvMatchScore: cvMatch.score,
-          cvMatchReason: cvMatch.reason,
-          cvMatchVersion: CV_MATCH_VERSION,
-        } : {}),
+        cvData,
+        cvMatchScore: cvMatch.score,
+        cvMatchReason: cvMatch.reason,
+        cvMatchVersion: CV_MATCH_VERSION,
       });
       
       // Create notification for project owner
@@ -1360,7 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A valid recipient is required" });
       }
       if (!(await canMessageUsers(req.user!.id, receiverId))) {
-        return res.status(403).json({ error: "You can only message connected users or approved project teammates" });
+        return res.status(403).json({ error: "You can only message connected users or applicants/researchers linked by a project application" });
       }
 
       const messageData = insertMessageSchema.parse({
@@ -1369,7 +1424,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const message = await storage.createMessage(messageData);
-      
+
+      await emailApplicantAboutResearcherContact(
+        req,
+        message.receiverId,
+        "message",
+        message.content,
+      );
+
       // Create notification for receiver
       await storage.createNotification({
         userId: message.receiverId,
@@ -1425,7 +1487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Cannot open a conversation with yourself' });
       }
       if (!(await canMessageUsers(req.user!.id, otherId))) {
-        return res.status(403).json({ error: 'You can only view conversations with connected users or approved project teammates' });
+        return res.status(403).json({ error: 'You can only view conversations with connected users or applicants/researchers linked by a project application' });
       }
 
       const allMessages = await storage.getMessages({});
@@ -1613,6 +1675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!toUserId) return res.status(400).json({ error: 'toUserId is required' });
       if (toUserId === req.user!.id) return res.status(400).json({ error: 'Cannot connect to yourself' });
       const connection = await storage.createConnectionRequest({ fromUserId: req.user!.id, toUserId, message });
+      await emailApplicantAboutResearcherContact(
+        req,
+        toUserId,
+        "connection",
+        typeof message === "string" ? message : "",
+      );
       res.status(201).json(connection);
     } catch (error: any) {
       console.error('Error creating connection request:', error);

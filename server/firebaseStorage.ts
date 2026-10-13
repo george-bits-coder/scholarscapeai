@@ -1072,19 +1072,24 @@ export class FirebaseStorage implements IStorage {
 
   async getFeed(userId: string): Promise<any[]> {
     try {
-      const [projects, events, feedPosts] = await Promise.all([
+      const [connections, projects, feedPosts, liveEvents] = await Promise.all([
+        this.getConnectionsForUser(userId),
         this.getProjects({ status: "active" }),
-        this.listItems<any>("events"), // Wait, events are not in "events" path, it's "liveEvents"
         this.listItems<any>("feedPosts"),
+        this.listItems<any>("liveEvents"),
       ]);
 
-      // Fix: Fetch liveEvents properly
-      const liveEvents = await this.listItems<any>("liveEvents");
+      const connectedUserIds = new Set([
+        userId,
+        ...connections.map((connection) =>
+          String(connection.fromUserId === userId ? connection.toUserId : connection.fromUserId),
+        ),
+      ]);
 
       const feedItems: any[] = [];
 
       // Add Projects to Feed
-      for (const project of projects.slice(0, 5)) {
+      for (const project of projects.filter((item) => connectedUserIds.has(String(item.ownerId))).slice(0, 5)) {
         const owner = await this.getUser(project.ownerId);
         const postMeta = feedPosts.find(p => p.id === `project-${project.id}`);
         const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
@@ -1112,7 +1117,7 @@ export class FirebaseStorage implements IStorage {
       }
 
       // Add Live Events to Feed
-      for (const event of liveEvents.slice(0, 3)) {
+      for (const event of liveEvents.filter((item) => connectedUserIds.has(String(item.ownerId))).slice(0, 3)) {
         const owner = await this.getUser(event.ownerId);
         const postMeta = feedPosts.find(p => p.id === `event-${event.id}`);
         const likedByUserIds = Array.isArray(postMeta?.likedByUserIds) ? postMeta.likedByUserIds : [];
@@ -1140,7 +1145,9 @@ export class FirebaseStorage implements IStorage {
       }
 
       // Add Feed Posts to Feed
-      for (const post of feedPosts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))) {
+      for (const post of feedPosts
+        .filter((item) => connectedUserIds.has(String(item.authorId)))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))) {
         const author = await this.getUser(post.authorId);
         const likedByUserIds = Array.isArray(post.likedByUserIds) ? post.likedByUserIds : [];
         

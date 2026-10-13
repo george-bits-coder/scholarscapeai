@@ -137,6 +137,34 @@ function uploadFeedImage(req: any, res: any, next: any) {
   });
 }
 
+async function isApprovedProjectTeammate(userId: string, otherUserId: string): Promise<boolean> {
+  const applications = await storage.getApplications({ userId });
+  const approvedApplications = applications.filter(
+    (application) => application.status === "approved",
+  );
+  const projects = await Promise.all(
+    approvedApplications.map((application) => storage.getProject(application.projectId)),
+  );
+  return projects.some((project) => project?.ownerId === otherUserId);
+}
+
+async function canMessageUsers(userId: string, otherUserId: string): Promise<boolean> {
+  const connections = await storage.getConnectionsForUser(userId);
+  const isConnected = connections.some((connection: any) => {
+    const connectedUserId = connection.fromUserId === userId
+      ? connection.toUserId
+      : connection.fromUserId;
+    return connectedUserId === otherUserId;
+  });
+  if (isConnected) return true;
+
+  const [userIsApprovedTeammate, otherIsApprovedTeammate] = await Promise.all([
+    isApprovedProjectTeammate(userId, otherUserId),
+    isApprovedProjectTeammate(otherUserId, userId),
+  ]);
+  return userIsApprovedTeammate || otherIsApprovedTeammate;
+}
+
 function uploadProfileImageToCloudinary(buffer: Buffer, userId: string): Promise<{ secure_url: string; public_id: string }> {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
@@ -1327,14 +1355,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const acceptedConnections = await storage.getConnectionsForUser(req.user!.id);
       const receiverId = req.body?.receiverId;
-      const isConnected = acceptedConnections.some((connection: any) => {
-        const otherUserId = connection.fromUserId === req.user!.id ? connection.toUserId : connection.fromUserId;
-        return otherUserId === receiverId;
-      });
-      if (!isConnected) {
-        return res.status(403).json({ error: "You can only message connected users" });
+      if (typeof receiverId !== "string" || !receiverId || receiverId === req.user!.id) {
+        return res.status(400).json({ error: "A valid recipient is required" });
+      }
+      if (!(await canMessageUsers(req.user!.id, receiverId))) {
+        return res.status(403).json({ error: "You can only message connected users or approved project teammates" });
       }
 
       const messageData = insertMessageSchema.parse({
@@ -1395,13 +1421,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Authentication required' });
     try {
       const otherId = req.params.otherId;
-      const acceptedConnections = await storage.getConnectionsForUser(req.user!.id);
-      const isConnected = acceptedConnections.some((connection: any) => {
-        const connectedUserId = connection.fromUserId === req.user!.id ? connection.toUserId : connection.fromUserId;
-        return connectedUserId === otherId;
-      });
-      if (!isConnected) {
-        return res.status(403).json({ error: 'You can only view conversations with connected users' });
+      if (otherId === req.user!.id) {
+        return res.status(400).json({ error: 'Cannot open a conversation with yourself' });
+      }
+      if (!(await canMessageUsers(req.user!.id, otherId))) {
+        return res.status(403).json({ error: 'You can only view conversations with connected users or approved project teammates' });
       }
 
       const allMessages = await storage.getMessages({});
